@@ -229,6 +229,38 @@ body {
   .position-grid { grid-template-columns: 1fr; }
 }
 
+/* Reports Tab */
+.reports-toolbar {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.report-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: 0.15s;
+}
+.report-card:hover { border-color: #5a5a5a; background: var(--bg-hover); }
+.report-card.starred-5 { border-left: 3px solid #ff5252; }
+.report-card.starred-4 { border-left: 3px solid #ff9800; }
+.report-card.starred-3 { border-left: 3px solid #ffc107; }
+.report-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.report-title { font-size: 0.9rem; font-weight: 600; line-height: 1.4; flex: 1; }
+.report-stars { font-size: 0.9rem; white-space: nowrap; }
+.report-meta { display: flex; gap: 14px; font-size: 0.72rem; color: var(--text-muted); flex-wrap: wrap; margin-bottom: 6px; }
+.report-meta .source { color: var(--accent-blue); }
+.report-products { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.report-products .tag {
+  background: var(--bg-hover); color: var(--accent-blue); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 10px; font-size: 0.68rem; cursor: pointer;
+}
+.report-products .tag:hover { background: #333d4a; }
+.report-summary { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; }
+.report-keywords { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.report-keywords .kw {
+  background: rgba(163,113,247,0.15); color: var(--accent-purple);
+  padding: 1px 6px; border-radius: 3px; font-size: 0.65rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .price-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
@@ -317,7 +349,24 @@ body {
   <div class="tab-panel" id="panel-chemical"><div class="sector-cards" data-sector="chemical"></div></div>
   <div class="tab-panel" id="panel-agri"><div class="sector-cards" data-sector="agri"></div></div>
   <div class="tab-panel" id="panel-financial"><div class="sector-cards" data-sector="financial"></div></div>
-  <div class="tab-panel" id="panel-reports"><div style="color:var(--text-muted);padding:40px;text-align:center;">研报汇总功能将在第四步上线<br>届时每天早上自动抓取各渠道研报并AI摘要标星</div></div>
+  <div class="tab-panel" id="panel-reports">
+    <div class="reports-toolbar">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="report-sector-filter" onchange="ReportUI.renderAll()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:0.75rem;">
+          <option value="all">全部板块</option><option value="black">黑色系</option><option value="nonferrous">有色金属</option><option value="precious">贵金属</option><option value="chemical">能源化工</option><option value="agri">农产品</option><option value="financial">金融期货</option><option value="macro">宏观策略</option>
+        </select>
+        <select id="report-product-filter" onchange="ReportUI.renderAll()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:0.75rem;">
+          <option value="all">全部品种</option>
+        </select>
+        <select id="report-star-filter" onchange="ReportUI.renderAll()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:0.75rem;">
+          <option value="all">全部星级</option><option value="5">⭐⭐⭐⭐⭐ 强烈关注</option><option value="4">⭐⭐⭐⭐ 值得关注</option><option value="3">⭐⭐⭐ 一般</option>
+        </select>
+        <button onclick="ReportUI.refresh()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:0.75rem;">🔄 刷新研报</button>
+      </div>
+      <span id="report-update-time" style="font-size:0.72rem;color:var(--text-muted);"></span>
+    </div>
+    <div id="report-list"></div>
+  </div>
   <div class="tab-panel" id="panel-inventory">
     <!-- 仓单数据 -->
     <div class="inventory-section">
@@ -1318,6 +1367,24 @@ UI.filterAlerts = function() {
 };
 
 // ==============================
+// EMBEDDED REPORT DATA
+// ==============================
+const EMBEDDED_REPORT_DATA = [
+  {title:"铜价短期震荡偏强，关注供给端扰动",source:"中信期货",date:"2026-06-06",products:["CU"],sector:"nonferrous",stars:4,summary:"智利铜矿罢工风险上升，叠加国内精铜库存持续去化，短期铜价偏强震荡。建议关注7万元关口压力位，逢低做多思路为主。LME铜库存已降至近5年低位，国内现货升水扩大。",keywords:["供给扰动","库存去化","偏强"],url:"#"},
+  {title:"螺纹钢需求韧性超预期，去库速度加快",source:"永安期货",date:"2026-06-06",products:["RB","HC"],sector:"black",stars:5,summary:"本周螺纹钢表观消费量环比上升8.2%，超出市场预期。社会库存连续第6周下降，当前库存已低于去年同期水平。地产竣工端需求回升叠加基建项目加速施工，预计短期钢价维持偏强。",keywords:["需求超预期","库存新低","偏强"],url:"#"},
+  {title:"铁矿石供给宽松格局未变，关注钢厂补库节奏",source:"国泰君安期货",date:"2026-06-05",products:["I"],sector:"black",stars:3,summary:"澳洲巴西发运量维持高位，港口库存小幅累积。钢厂利润修复后补库意愿增强，但铁矿石中长期供给宽松格局未变。建议区间操作，关注730-780元/吨波动区间。",keywords:["供给宽松","补库","区间操作"],url:"#"},
+  {title:"纯碱基本面强势，光伏玻璃投产拉动需求",source:"华泰期货",date:"2026-06-06",products:["SA","FG"],sector:"chemical",stars:5,summary:"6月光伏玻璃新增3条产线点火，纯碱周度表观消费环比增长12%。现货企业库存极低，部分碱厂排队提货，现货价格持续上调。建议多单持有，关注新增产能投放进度。",keywords:["需求爆发","库存极低","强烈看多"],url:"#"},
+  {title:"原油短期承压，OPEC+增产预期发酵",source:"中粮期货",date:"2026-06-06",products:["SC","FU","BU"],sector:"chemical",stars:4,summary:"OPEC+会议临近，市场担忧减产协议松动。同时EIA数据显示美国原油库存意外增加320万桶。短期油价承压，但地缘风险溢价仍存。建议SC在560-600区间高抛低吸。",keywords:["OPEC+","增产预期","库存增加","区间操作"],url:"#"},
+  {title:"豆粕面临USDA报告关键窗口期",source:"中粮期货",date:"2026-06-05",products:["M","RM","Y"],sector:"agri",stars:4,summary:"美国大豆播种进度85%略低于5年均值，下周USDA将发布6月供需报告。市场预期美豆种植面积可能下调。国内豆粕库存偏低，下游饲料企业补库需求支撑价格。建议报告前轻仓观望。",keywords:["USDA","种植面积","供需报告"],url:"#"},
+  {title:"棕榈油进入产量旺季，MPOB数据即将公布",source:"国泰君安期货",date:"2026-06-06",products:["P","Y"],sector:"agri",stars:3,summary:"马来西亚5月棕榈油产量预计环比增8-10%，出口受印度需求提振。印尼B40政策实施进度仍是最大变量。国内棕榈油库存低位，进口利润倒挂。短期高位震荡，等待MPOB数据指引。",keywords:["MPOB","产量旺季","B40政策"],url:"#"},
+  {title:"贵金属高位盘整，美联储政策预期博弈加剧",source:"中信期货",date:"2026-06-06",products:["AU","AG"],sector:"precious",stars:4,summary:"美国5月非农数据低于预期，市场加大了对美联储年内降息的押注。实际利率下行和央行购金需求为金价提供支撑。白银受到光伏用银需求增长和金银比修复的双重驱动。建议多单继续持有。",keywords:["非农","降息预期","央行购金"],url:"#"},
+  {title:"双焦走势分化：焦煤偏弱，焦炭偏强",source:"永安期货",date:"2026-06-05",products:["JM","J"],sector:"black",stars:3,summary:"焦煤供给端蒙煤进口增量明显，国内煤矿开工率维持高位，焦煤现货承压。焦炭受钢厂补库需求提振，焦化企业提涨意愿较强。关注焦化利润修复带来的焦炭-焦煤价差变化。",keywords:["蒙煤进口","焦化利润","走势分化"],url:"#"},
+  {title:"宏观周报：关注美国CPI和中国PMI数据",source:"中信建投期货",date:"2026-06-06",products:[],sector:"macro",stars:5,summary:"下周重点关注美国5月CPI数据（周二）和中国5月官方制造业PMI（周三）。市场预期美国CPI同比回落至3.8%，若低于预期将进一步强化降息预期。中国PMI若连续第三个月处于扩张区间，将提振商品市场风险偏好。",keywords:["CPI","PMI","宏观数据","降息"],url:"#"},
+  {title:"生猪存栏回升缓慢，猪价中枢有望上移",source:"华泰期货",date:"2026-06-05",products:["LH"],sector:"agri",stars:3,summary:"5月能繁母猪存栏同比仍下降2.3%，产能去化进程慢于预期。需求端进入夏季消费淡季，但供给端偏紧格局未改。预计三季度猪价中枢有望上移至16-18元/公斤区间。",keywords:["存栏下降","供给偏紧","猪价中枢"],url:"#"},
+  {title:"国债期货策略：做陡收益率曲线",source:"中信期货",date:"2026-06-06",products:["TS","TF","T","TL"],sector:"financial",stars:3,summary:"短端利率受资金面宽松支撑下行空间较大，长端受供给压力和通胀预期制约。建议做多2年期国债期货、做空30年期国债期货，博弈收益率曲线陡峭化。关注下周MLF续作情况。",keywords:["收益率曲线","MLF","陡峭化"],url:"#"},
+];
+
+// ==============================
 // EMBEDDED SAMPLE DATA (fallback when fetch fails on file://)
 // ==============================
 const EMBEDDED_RECEIPT_DATA = {"updateTime":"2026-06-05 18:30:00","source":"示例数据","data":[{code:"CU",name:"沪铜",exchange:"SHFE",receipt:25632,change:1234,changePct:5.06},{code:"AL",name:"沪铝",exchange:"SHFE",receipt:48520,change:-2340,changePct:-4.6},{code:"ZN",name:"沪锌",exchange:"SHFE",receipt:12340,change:890,changePct:7.77},{code:"NI",name:"沪镍",exchange:"SHFE",receipt:3420,change:520,changePct:17.93},{code:"AG",name:"沪银",exchange:"SHFE",receipt:385200,change:-12500,changePct:-3.14},{code:"RB",name:"螺纹钢",exchange:"SHFE",receipt:145600,change:8700,changePct:6.35},{code:"HC",name:"热卷",exchange:"SHFE",receipt:68900,change:3200,changePct:4.87},{code:"FU",name:"燃油",exchange:"SHFE",receipt:45200,change:-1800,changePct:-3.83},{code:"BU",name:"沥青",exchange:"SHFE",receipt:32100,change:1500,changePct:4.9},{code:"I",name:"铁矿石",exchange:"DCE",receipt:256000,change:12000,changePct:4.92},{code:"JM",name:"焦煤",exchange:"DCE",receipt:89200,change:-3400,changePct:-3.67},{code:"J",name:"焦炭",exchange:"DCE",receipt:45600,change:2100,changePct:4.83},{code:"M",name:"豆粕",exchange:"DCE",receipt:325000,change:-8500,changePct:-2.55},{code:"Y",name:"豆油",exchange:"DCE",receipt:98700,change:2300,changePct:2.39},{code:"P",name:"棕榈油",exchange:"DCE",receipt:65400,change:-1200,changePct:-1.8},{code:"TA",name:"PTA",exchange:"CZCE",receipt:185000,change:9500,changePct:5.41},{code:"MA",name:"甲醇",exchange:"CZCE",receipt:78200,change:-4200,changePct:-5.1},{code:"SA",name:"纯碱",exchange:"CZCE",receipt:56200,change:6800,changePct:13.77},{code:"FG",name:"玻璃",exchange:"CZCE",receipt:42300,change:1200,changePct:2.92},{code:"CF",name:"棉花",exchange:"CZCE",receipt:128500,change:-3200,changePct:-2.43},{code:"SR",name:"白糖",exchange:"CZCE",receipt:95600,change:4500,changePct:4.94},{code:"C",name:"玉米",exchange:"DCE",receipt:456000,change:-12000,changePct:-2.56},{code:"SC",name:"原油",exchange:"INE",receipt:8500000,change:452000,changePct:5.62},{code:"AU",name:"沪金",exchange:"SHFE",receipt:8520,change:0,changePct:0},{code:"PB",name:"沪铅",exchange:"SHFE",receipt:8750,change:-156,changePct:-1.75},{code:"SN",name:"沪锡",exchange:"SHFE",receipt:980,change:45,changePct:4.81},{code:"LH",name:"生猪",exchange:"DCE",receipt:1200,change:80,changePct:7.14}]};
@@ -1467,6 +1534,133 @@ const InventoryUI = {
 };
 
 // ==============================
+// REPORT UI
+// ==============================
+const ReportUI = {
+  _reports: [],
+  _loaded: false,
+
+  STAR_KEYWORDS: {
+    5: ['强烈推荐','强烈看多','强烈看空','供需逆转','库存新低','库存极低','需求爆发','供给骤降','重大利多','重大利空','突破关键','历史低位','历史高位'],
+    4: ['偏强','偏弱','看多','看空','去库','累库','减产','增产','OPEC','非农','CPI','美联储','USDA','MPOB','开工率','地缘','制裁'],
+    3: ['关注','震荡','波动','短期','中长期','预期','可能','或将','压力位','支撑位','区间','盘整'],
+  },
+
+  load() {
+    // Try to fetch from JSON, fallback to embedded
+    try {
+      fetch('data/reports.json').then(r => {
+        if (r.ok) return r.json();
+        throw new Error('no remote data');
+      }).then(data => {
+        this._reports = data.reports || data;
+        this._loaded = true;
+        this.renderAll();
+      }).catch(() => {
+        this._reports = EMBEDDED_REPORT_DATA;
+        this._loaded = true;
+        this.renderAll();
+      });
+    } catch(e) {
+      this._reports = EMBEDDED_REPORT_DATA;
+      this._loaded = true;
+      this.renderAll();
+    }
+  },
+
+  refresh() {
+    // Re-score and re-render
+    this._reports.forEach(r => {
+      r.stars = this.scoreReport(r);
+    });
+    this._reports.sort((a,b) => (b.stars||0) - (a.stars||0) || b.date.localeCompare(a.date));
+    this.renderAll();
+  },
+
+  scoreReport(report) {
+    const text = (report.title + ' ' + report.summary).toLowerCase();
+    let score = 0;
+    // Check level-5 keywords
+    for (const kw of this.STAR_KEYWORDS[5]) {
+      if (text.includes(kw.toLowerCase())) { score = Math.max(score, 5); break; }
+    }
+    if (score >= 5) return 5;
+    // Check level-4 keywords
+    for (const kw of this.STAR_KEYWORDS[4]) {
+      if (text.includes(kw.toLowerCase())) { score = Math.max(score, 4); }
+    }
+    if (score >= 4) return 4;
+    // Check level-3 keywords
+    for (const kw of this.STAR_KEYWORDS[3]) {
+      if (text.includes(kw.toLowerCase())) { score = Math.max(score, 3); }
+    }
+    return score >= 3 ? 3 : 2;
+  },
+
+  renderAll() {
+    if (!this._loaded) { this.load(); return; }
+
+    const sectorFilter = document.getElementById('report-sector-filter')?.value || 'all';
+    const productFilter = document.getElementById('report-product-filter')?.value || 'all';
+    const starFilter = document.getElementById('report-star-filter')?.value || 'all';
+
+    let filtered = [...this._reports];
+    if (sectorFilter !== 'all') filtered = filtered.filter(r => r.sector === sectorFilter);
+    if (productFilter !== 'all') filtered = filtered.filter(r => r.products.includes(productFilter));
+    if (starFilter !== 'all') filtered = filtered.filter(r => (r.stars||0) >= parseInt(starFilter));
+
+    const list = document.getElementById('report-list');
+    const timeEl = document.getElementById('report-update-time');
+    if (timeEl) timeEl.textContent = `共 ${filtered.length} 篇研报 | 更新: ${new Date().toLocaleDateString('zh-CN')}`;
+
+    // Populate product filter
+    const prodSel = document.getElementById('report-product-filter');
+    if (prodSel && prodSel.options.length <= 1) {
+      const allProds = new Set();
+      this._reports.forEach(r => r.products.forEach(p => allProds.add(p)));
+      let opts = '<option value="all">全部品种</option>';
+      [...allProds].sort().forEach(p => {
+        const prod = PRODUCTS.find(x => x.code === p);
+        opts += `<option value="${p}">${prod ? prod.name : p} ${p}</option>`;
+      });
+      prodSel.innerHTML = opts;
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px;">暂无匹配的研报</div>';
+      return;
+    }
+
+    const starIcons = {5:'⭐⭐⭐⭐⭐',4:'⭐⭐⭐⭐',3:'⭐⭐⭐',2:'⭐⭐',1:'⭐'};
+    let html = '';
+    filtered.forEach(r => {
+      const stars = r.stars || 2;
+      const tags = r.products.map(p => {
+        const prod = PRODUCTS.find(x => x.code === p);
+        return `<span class="tag" onclick="event.stopPropagation();App.selectProduct('${p}')">${prod ? prod.name : p}</span>`;
+      }).join('');
+      const kws = (r.keywords || []).map(k => `<span class="kw">#${k}</span>`).join('');
+
+      html += `<div class="report-card starred-${Math.min(stars, 5)}" ${r.url && r.url !== '#' ? `onclick="window.open('${r.url}','_blank')"` : ''}>
+        <div class="report-header">
+          <span class="report-title">${r.title}</span>
+          <span class="report-stars" title="关注等级: ${stars}/5">${starIcons[stars] || '⭐⭐'}</span>
+        </div>
+        <div class="report-meta">
+          <span class="source">📰 ${r.source}</span>
+          <span>📅 ${r.date}</span>
+          ${r.sector ? `<span>🏷 ${SECTORS[r.sector]?.name || r.sector}</span>` : ''}
+        </div>
+        <div class="report-products">${tags}</div>
+        <div class="report-summary">${r.summary}</div>
+        ${kws ? `<div class="report-keywords">${kws}</div>` : ''}
+      </div>`;
+    });
+    list.innerHTML = html;
+  },
+};
+
+// ==============================
 // APP CONTROLLER
 // ==============================
 const App = {
@@ -1477,6 +1671,7 @@ const App = {
     this.bindSettingsEvents();
     await this.refresh();
     InventoryUI.loadData().then(() => InventoryUI.renderAll());
+    ReportUI.load();
     this.startAutoRefresh();
 
     // Request notification permission
@@ -1653,6 +1848,8 @@ const App = {
           UI.renderSectorCards(tab, '#panel-' + tab + ' .sector-cards');
         } else if (tab === 'inventory') {
           InventoryUI.renderAll();
+        } else if (tab === 'reports') {
+          ReportUI.renderAll();
         }
 
         // Resize charts

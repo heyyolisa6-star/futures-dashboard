@@ -199,7 +199,7 @@ def fetch_via_requests():
 
 
 def main():
-    print(f"📄 期货研报抓取 v2 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"[报告抓取] - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("-" * 50)
 
     os.makedirs(DATA_DIR, exist_ok=True)

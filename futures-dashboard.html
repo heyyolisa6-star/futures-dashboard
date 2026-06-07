@@ -366,6 +366,21 @@ body {
       <span id="report-update-time" style="font-size:0.72rem;color:var(--text-muted);"></span>
     </div>
     <div id="report-list"></div>
+    <details style="margin-top:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;">
+      <summary style="cursor:pointer;font-size:0.82rem;color:var(--text-secondary);">📡 自定义数据源 & 说明</summary>
+      <div style="margin-top:10px;font-size:0.75rem;color:var(--text-muted);line-height:1.6;">
+        <p><b>当前数据来源：</b></p>
+        <ul style="margin:6px 0 10px 16px;">
+          <li>嵌入式示例数据（12篇，离线可用）</li>
+          <li>Python脚本 <code>scripts/fetch_morning_reports.py</code> 从东方财富研报中心 + akshare 抓取</li>
+          <li>GitHub Actions 每个交易日08:30自动更新 <code>data/reports.json</code></li>
+        </ul>
+        <p><b>添加自定义研报源：</b></p>
+        <textarea id="custom-report-urls" placeholder="每行一个研报链接或RSS源&#10;例如：&#10;https://data.eastmoney.com/report/industry/futures.html&#10;https://www.gfex.com.cn/gfex/tzgg.shtml" rows="4" style="width:100%;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:0.72rem;font-family:monospace;resize:vertical;"></textarea>
+        <button onclick="ReportUI.saveCustomSources()" style="margin-top:6px;background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border);padding:4px 12px;border-radius:3px;cursor:pointer;font-size:0.72rem;">💾 保存数据源</button>
+        <span id="custom-source-msg" style="font-size:0.7rem;color:var(--accent-green);margin-left:8px;"></span>
+      </div>
+    </details>
   </div>
   <div class="tab-panel" id="panel-inventory">
     <!-- 仓单数据 -->
@@ -461,6 +476,10 @@ const PRODUCTS = [
   // 贵金属 Precious
   {code:'AU',name:'沪金',sector:'precious',exchange:'SHFE',unit:'元/克',priceScale:1,volUnit:'手',refPrice:949},
   {code:'AG',name:'沪银',sector:'precious',exchange:'SHFE',unit:'元/千克',priceScale:1,volUnit:'手',refPrice:16454},
+  // 新能源 NewEnergy (广期所 GFEX)
+  {code:'SI',name:'工业硅',sector:'chemical',exchange:'GFEX',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:10200},
+  {code:'LC',name:'碳酸锂',sector:'chemical',exchange:'GFEX',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:78500},
+  {code:'PS',name:'多晶硅',sector:'chemical',exchange:'GFEX',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:41200},
   // 能源化工 Chemical
   {code:'SC',name:'原油',sector:'chemical',exchange:'INE',unit:'元/桶',priceScale:1,volUnit:'手',refPrice:584},
   {code:'FU',name:'燃油',sector:'chemical',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:3280},
@@ -1100,6 +1119,9 @@ const NEWS_KEYWORDS = {
   TF:['国债期货','五年国债','利率债'],
   T:['十年国债','长端利率','债市'],
   TL:['三十年国债','超长债','利率'],
+  SI:['工业硅','硅价','广期所','金属硅','多晶硅','有机硅','枯水季'],
+  LC:['碳酸锂','锂价','广期所','正极材料','新能源车','锂电池','盐湖提锂','锂矿'],
+  PS:['多晶硅','硅料','广期所','光伏','硅片','硅业'],
 };
 
 const NewsMatcher = {
@@ -1370,18 +1392,21 @@ UI.filterAlerts = function() {
 // EMBEDDED REPORT DATA
 // ==============================
 const EMBEDDED_REPORT_DATA = [
-  {title:"铜价短期震荡偏强，关注供给端扰动",source:"中信期货",date:"2026-06-06",products:["CU"],sector:"nonferrous",stars:4,summary:"智利铜矿罢工风险上升，叠加国内精铜库存持续去化，短期铜价偏强震荡。建议关注7万元关口压力位，逢低做多思路为主。LME铜库存已降至近5年低位，国内现货升水扩大。",keywords:["供给扰动","库存去化","偏强"],url:"#"},
-  {title:"螺纹钢需求韧性超预期，去库速度加快",source:"永安期货",date:"2026-06-06",products:["RB","HC"],sector:"black",stars:5,summary:"本周螺纹钢表观消费量环比上升8.2%，超出市场预期。社会库存连续第6周下降，当前库存已低于去年同期水平。地产竣工端需求回升叠加基建项目加速施工，预计短期钢价维持偏强。",keywords:["需求超预期","库存新低","偏强"],url:"#"},
-  {title:"铁矿石供给宽松格局未变，关注钢厂补库节奏",source:"国泰君安期货",date:"2026-06-05",products:["I"],sector:"black",stars:3,summary:"澳洲巴西发运量维持高位，港口库存小幅累积。钢厂利润修复后补库意愿增强，但铁矿石中长期供给宽松格局未变。建议区间操作，关注730-780元/吨波动区间。",keywords:["供给宽松","补库","区间操作"],url:"#"},
-  {title:"纯碱基本面强势，光伏玻璃投产拉动需求",source:"华泰期货",date:"2026-06-06",products:["SA","FG"],sector:"chemical",stars:5,summary:"6月光伏玻璃新增3条产线点火，纯碱周度表观消费环比增长12%。现货企业库存极低，部分碱厂排队提货，现货价格持续上调。建议多单持有，关注新增产能投放进度。",keywords:["需求爆发","库存极低","强烈看多"],url:"#"},
-  {title:"原油短期承压，OPEC+增产预期发酵",source:"中粮期货",date:"2026-06-06",products:["SC","FU","BU"],sector:"chemical",stars:4,summary:"OPEC+会议临近，市场担忧减产协议松动。同时EIA数据显示美国原油库存意外增加320万桶。短期油价承压，但地缘风险溢价仍存。建议SC在560-600区间高抛低吸。",keywords:["OPEC+","增产预期","库存增加","区间操作"],url:"#"},
-  {title:"豆粕面临USDA报告关键窗口期",source:"中粮期货",date:"2026-06-05",products:["M","RM","Y"],sector:"agri",stars:4,summary:"美国大豆播种进度85%略低于5年均值，下周USDA将发布6月供需报告。市场预期美豆种植面积可能下调。国内豆粕库存偏低，下游饲料企业补库需求支撑价格。建议报告前轻仓观望。",keywords:["USDA","种植面积","供需报告"],url:"#"},
-  {title:"棕榈油进入产量旺季，MPOB数据即将公布",source:"国泰君安期货",date:"2026-06-06",products:["P","Y"],sector:"agri",stars:3,summary:"马来西亚5月棕榈油产量预计环比增8-10%，出口受印度需求提振。印尼B40政策实施进度仍是最大变量。国内棕榈油库存低位，进口利润倒挂。短期高位震荡，等待MPOB数据指引。",keywords:["MPOB","产量旺季","B40政策"],url:"#"},
-  {title:"贵金属高位盘整，美联储政策预期博弈加剧",source:"中信期货",date:"2026-06-06",products:["AU","AG"],sector:"precious",stars:4,summary:"美国5月非农数据低于预期，市场加大了对美联储年内降息的押注。实际利率下行和央行购金需求为金价提供支撑。白银受到光伏用银需求增长和金银比修复的双重驱动。建议多单继续持有。",keywords:["非农","降息预期","央行购金"],url:"#"},
-  {title:"双焦走势分化：焦煤偏弱，焦炭偏强",source:"永安期货",date:"2026-06-05",products:["JM","J"],sector:"black",stars:3,summary:"焦煤供给端蒙煤进口增量明显，国内煤矿开工率维持高位，焦煤现货承压。焦炭受钢厂补库需求提振，焦化企业提涨意愿较强。关注焦化利润修复带来的焦炭-焦煤价差变化。",keywords:["蒙煤进口","焦化利润","走势分化"],url:"#"},
-  {title:"宏观周报：关注美国CPI和中国PMI数据",source:"中信建投期货",date:"2026-06-06",products:[],sector:"macro",stars:5,summary:"下周重点关注美国5月CPI数据（周二）和中国5月官方制造业PMI（周三）。市场预期美国CPI同比回落至3.8%，若低于预期将进一步强化降息预期。中国PMI若连续第三个月处于扩张区间，将提振商品市场风险偏好。",keywords:["CPI","PMI","宏观数据","降息"],url:"#"},
-  {title:"生猪存栏回升缓慢，猪价中枢有望上移",source:"华泰期货",date:"2026-06-05",products:["LH"],sector:"agri",stars:3,summary:"5月能繁母猪存栏同比仍下降2.3%，产能去化进程慢于预期。需求端进入夏季消费淡季，但供给端偏紧格局未改。预计三季度猪价中枢有望上移至16-18元/公斤区间。",keywords:["存栏下降","供给偏紧","猪价中枢"],url:"#"},
-  {title:"国债期货策略：做陡收益率曲线",source:"中信期货",date:"2026-06-06",products:["TS","TF","T","TL"],sector:"financial",stars:3,summary:"短端利率受资金面宽松支撑下行空间较大，长端受供给压力和通胀预期制约。建议做多2年期国债期货、做空30年期国债期货，博弈收益率曲线陡峭化。关注下周MLF续作情况。",keywords:["收益率曲线","MLF","陡峭化"],url:"#"},
+  {title:"铜价短期震荡偏强，关注供给端扰动",source:"中信期货",date:"2026-06-06",products:["CU"],sector:"nonferrous",stars:4,summary:"智利铜矿罢工风险上升，叠加国内精铜库存持续去化，短期铜价偏强震荡。建议关注7万元关口压力位，逢低做多思路为主。LME铜库存已降至近5年低位，国内现货升水扩大。",keywords:["供给扰动","库存去化","偏强"],url:"https://search.eastmoney.com/search?m=0&t=4&k=铜价短期震荡偏强"},
+  {title:"螺纹钢需求韧性超预期，去库速度加快",source:"永安期货",date:"2026-06-06",products:["RB","HC"],sector:"black",stars:5,summary:"本周螺纹钢表观消费量环比上升8.2%，超出市场预期。社会库存连续第6周下降，当前库存已低于去年同期水平。地产竣工端需求回升叠加基建项目加速施工，预计短期钢价维持偏强。",keywords:["需求超预期","库存新低","偏强"],url:"https://search.eastmoney.com/search?m=0&t=4&k=螺纹钢去库"},
+  {title:"铁矿石供给宽松格局未变，关注钢厂补库节奏",source:"国泰君安期货",date:"2026-06-05",products:["I"],sector:"black",stars:3,summary:"澳洲巴西发运量维持高位，港口库存小幅累积。钢厂利润修复后补库意愿增强，但铁矿石中长期供给宽松格局未变。建议区间操作，关注730-780元/吨波动区间。",keywords:["供给宽松","补库","区间操作"],url:"https://search.eastmoney.com/search?m=0&t=4&k=铁矿石供给钢厂补库"},
+  {title:"纯碱基本面强势，光伏玻璃投产拉动需求",source:"华泰期货",date:"2026-06-06",products:["SA","FG"],sector:"chemical",stars:5,summary:"6月光伏玻璃新增3条产线点火，纯碱周度表观消费环比增长12%。现货企业库存极低，部分碱厂排队提货，现货价格持续上调。建议多单持有，关注新增产能投放进度。",keywords:["需求爆发","库存极低","强烈看多"],url:"https://search.eastmoney.com/search?m=0&t=4&k=纯碱光伏玻璃需求"},
+  {title:"原油短期承压，OPEC+增产预期发酵",source:"中粮期货",date:"2026-06-06",products:["SC","FU","BU"],sector:"chemical",stars:4,summary:"OPEC+会议临近，市场担忧减产协议松动。同时EIA数据显示美国原油库存意外增加320万桶。短期油价承压，但地缘风险溢价仍存。建议SC在560-600区间高抛低吸。",keywords:["OPEC+","增产预期","库存增加","区间操作"],url:"https://search.eastmoney.com/search?m=0&t=4&k=OPEC增产预期原油"},
+  {title:"豆粕面临USDA报告关键窗口期",source:"中粮期货",date:"2026-06-05",products:["M","RM","Y"],sector:"agri",stars:4,summary:"美国大豆播种进度85%略低于5年均值，下周USDA将发布6月供需报告。市场预期美豆种植面积可能下调。国内豆粕库存偏低，下游饲料企业补库需求支撑价格。建议报告前轻仓观望。",keywords:["USDA","种植面积","供需报告"],url:"https://search.eastmoney.com/search?m=0&t=4&k=USDA豆粕供需报告"},
+  {title:"棕榈油进入产量旺季，MPOB数据即将公布",source:"国泰君安期货",date:"2026-06-06",products:["P","Y"],sector:"agri",stars:3,summary:"马来西亚5月棕榈油产量预计环比增8-10%，出口受印度需求提振。印尼B40政策实施进度仍是最大变量。国内棕榈油库存低位，进口利润倒挂。短期高位震荡，等待MPOB数据指引。",keywords:["MPOB","产量旺季","B40政策"],url:"https://search.eastmoney.com/search?m=0&t=4&k=MPOB棕榈油产量"},
+  {title:"贵金属高位盘整，美联储政策预期博弈加剧",source:"中信期货",date:"2026-06-06",products:["AU","AG"],sector:"precious",stars:4,summary:"美国5月非农数据低于预期，市场加大了对美联储年内降息的押注。实际利率下行和央行购金需求为金价提供支撑。白银受到光伏用银需求增长和金银比修复的双重驱动。建议多单继续持有。",keywords:["非农","降息预期","央行购金"],url:"https://search.eastmoney.com/search?m=0&t=4&k=美联储降息贵金属"},
+  {title:"双焦走势分化：焦煤偏弱，焦炭偏强",source:"永安期货",date:"2026-06-05",products:["JM","J"],sector:"black",stars:3,summary:"焦煤供给端蒙煤进口增量明显，国内煤矿开工率维持高位，焦煤现货承压。焦炭受钢厂补库需求提振，焦化企业提涨意愿较强。关注焦化利润修复带来的焦炭-焦煤价差变化。",keywords:["蒙煤进口","焦化利润","走势分化"],url:"https://search.eastmoney.com/search?m=0&t=4&k=双焦走势焦煤焦炭"},
+  {title:"宏观周报：关注美国CPI和中国PMI数据",source:"中信建投期货",date:"2026-06-06",products:[],sector:"macro",stars:5,summary:"下周重点关注美国5月CPI数据（周二）和中国5月官方制造业PMI（周三）。市场预期美国CPI同比回落至3.8%，若低于预期将进一步强化降息预期。中国PMI若连续第三个月处于扩张区间，将提振商品市场风险偏好。",keywords:["CPI","PMI","宏观数据","降息"],url:"https://search.eastmoney.com/search?m=0&t=4&k=美国CPI中国PMI宏观"},
+  {title:"生猪存栏回升缓慢，猪价中枢有望上移",source:"华泰期货",date:"2026-06-05",products:["LH"],sector:"agri",stars:3,summary:"5月能繁母猪存栏同比仍下降2.3%，产能去化进程慢于预期。需求端进入夏季消费淡季，但供给端偏紧格局未改。预计三季度猪价中枢有望上移至16-18元/公斤区间。",keywords:["存栏下降","供给偏紧","猪价中枢"],url:"https://search.eastmoney.com/search?m=0&t=4&k=生猪存栏猪价"},
+  {title:"国债期货策略：做陡收益率曲线",source:"中信期货",date:"2026-06-06",products:["TS","TF","T","TL"],sector:"financial",stars:3,summary:"短端利率受资金面宽松支撑下行空间较大，长端受供给压力和通胀预期制约。建议做多2年期国债期货、做空30年期国债期货，博弈收益率曲线陡峭化。关注下周MLF续作情况。",keywords:["收益率曲线","MLF","陡峭化"],url:"https://search.eastmoney.com/search?m=0&t=4&k=国债期货收益率曲线"},
+  // 广期所品种研报
+  {title:"碳酸锂底部震荡，关注新能源车销量回暖",source:"中信期货",date:"2026-06-06",products:["LC"],sector:"chemical",stars:4,summary:"碳酸锂价格自高点回落60%后在7-8万元/吨区间震荡。下游正极材料厂去库接近尾声，6月排产环比回升。新能源车销量数据即将公布，若超预期将提振锂价。建议逢低布局多单。",keywords:["底部震荡","新能源车","排产回升"],url:"https://search.eastmoney.com/search?m=0&t=4&k=碳酸锂新能源车销量"},
+  {title:"工业硅供给过剩格局延续，关注西南枯水季",source:"永安期货",date:"2026-06-05",products:["SI"],sector:"chemical",stars:3,summary:"工业硅社会库存仍处高位，新疆产能持续释放。但进入枯水季后西南地区电价上升，部分硅厂减产。多晶硅需求是最大变量。短期维持10000-11000元/吨区间震荡。",keywords:["供给过剩","枯水季","多晶硅需求"],url:"https://search.eastmoney.com/search?m=0&t=4&k=工业硅供给枯水季"},
 ];
 
 // ==============================
@@ -1547,6 +1572,9 @@ const ReportUI = {
   },
 
   load() {
+    // Load custom sources
+    const saved = localStorage.getItem('futures_custom_sources');
+    if (saved) document.getElementById('custom-report-urls').value = saved;
     // Try to fetch from JSON, fallback to embedded
     try {
       fetch('data/reports.json').then(r => {
@@ -1566,6 +1594,13 @@ const ReportUI = {
       this._loaded = true;
       this.renderAll();
     }
+  },
+
+  saveCustomSources() {
+    const urls = document.getElementById('custom-report-urls').value;
+    localStorage.setItem('futures_custom_sources', urls);
+    document.getElementById('custom-source-msg').textContent = '✅ 已保存！在GitHub Actions的fetch_morning_reports.py中配置这些源';
+    setTimeout(() => { document.getElementById('custom-source-msg').textContent = ''; }, 4000);
   },
 
   refresh() {
@@ -1641,7 +1676,7 @@ const ReportUI = {
       }).join('');
       const kws = (r.keywords || []).map(k => `<span class="kw">#${k}</span>`).join('');
 
-      html += `<div class="report-card starred-${Math.min(stars, 5)}" ${r.url && r.url !== '#' ? `onclick="window.open('${r.url}','_blank')"` : ''}>
+      html += `<div class="report-card starred-${Math.min(stars, 5)}">
         <div class="report-header">
           <span class="report-title">${r.title}</span>
           <span class="report-stars" title="关注等级: ${stars}/5">${starIcons[stars] || '⭐⭐'}</span>
@@ -1650,6 +1685,7 @@ const ReportUI = {
           <span class="source">📰 ${r.source}</span>
           <span>📅 ${r.date}</span>
           ${r.sector ? `<span>🏷 ${SECTORS[r.sector]?.name || r.sector}</span>` : ''}
+          ${r.url && r.url !== '#' ? `<a href="${r.url}" target="_blank" style="color:var(--accent-blue);text-decoration:none;font-size:0.7rem;" onclick="event.stopPropagation();">📖 阅读全文 →</a>` : ''}
         </div>
         <div class="report-products">${tags}</div>
         <div class="report-summary">${r.summary}</div>

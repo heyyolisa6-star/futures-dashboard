@@ -98,68 +98,102 @@ def fetch_via_akshare():
     try:
         import akshare as ak
 
-        # 尝试 AKShare 的研报接口
-        # stock_research_report_em 获取东方财富个股研报
-        try:
-            df = ak.stock_research_report_em(symbol="", date="")
-            if df is not None and not df.empty:
-                for _, row in df.head(50).iterrows():
-                    title = str(row.get('research_report_title', row.get('title', '')))
-                    summary = str(row.get('research_report_summary', row.get('summary', '')))[:300]
-                    org = str(row.get('org_name', row.get('source', row.get('research_report_org', '未知'))))
-                    date_str = str(row.get('date', row.get('create_date', '')))[:10]
-
-                    if not title or len(title) < 5:
-                        continue
-
-                    products = match_products(title, summary)
-                    sector = determine_sector(products)
-
-                    reports.append({
-                        'title': title,
-                        'source': org,
-                        'date': date_str or datetime.now().strftime('%Y-%m-%d'),
-                        'products': products,
-                        'sector': sector,
-                        'stars': score_report(title, summary),
-                        'summary': summary[:300] if summary else title,
-                        'keywords': [kw for kw_list in STAR_KEYWORDS.values() for kw in kw_list if kw in (title + summary)],
-                        'url': f'https://search.eastmoney.com/search?m=0&t=4&k={title[:30]}',
-                    })
-                print(f"  ✅ AKShare stock_research_report_em: {len(reports)} 篇")
-        except Exception as e:
-            print(f"  ⚠ stock_research_report_em 失败: {e}")
-
-        # 备选：尝试期货特定研报接口
-        if len(reports) < 5:
+        # 方法1: 获取最新研报列表（不限个股）
+        for method_name in ['stock_research_report_em', 'stock_report_disclosure', 'stock_research_report']:
             try:
-                # 尝试获取期货相关的研报列表
-                df2 = ak.stock_research_report_em(symbol="期货")
-                if df2 is not None and not df2.empty:
-                    for _, row in df2.head(30).iterrows():
-                        title = str(row.get('research_report_title', ''))
-                        summary = str(row.get('research_report_summary', ''))[:300]
-                        if not title or len(title) < 5:
-                            continue
-                        products = match_products(title, summary)
-                        sector = determine_sector(products)
-                        reports.append({
-                            'title': title,
-                            'source': str(row.get('org_name', '未知')),
-                            'date': str(row.get('date', ''))[:10] or datetime.now().strftime('%Y-%m-%d'),
-                            'products': products, 'sector': sector,
-                            'stars': score_report(title, summary),
-                            'summary': summary[:300] if summary else title,
-                            'keywords': [kw for kw_list in STAR_KEYWORDS.values() for kw in kw_list if kw in (title + summary)],
-                            'url': f'https://search.eastmoney.com/search?m=0&t=4&k={title[:30]}',
-                        })
+                func = getattr(ak, method_name, None)
+                if func is None:
+                    continue
+                # 尝试不同参数
+                for params in [(), ({'symbol': ''}), ({'date': ''})]:
+                    try:
+                        if isinstance(params, tuple):
+                            df = func()
+                        else:
+                            df = func(**params)
+                        if df is not None and not df.empty:
+                            for _, row in df.head(50).iterrows():
+                                title = str(row.get('research_report_title', row.get('title', row.get('report_name', ''))))
+                                if not title or len(title) < 5:
+                                    continue
+                                summary = str(row.get('research_report_summary', row.get('summary', row.get('desc', ''))))[:300]
+                                org = str(row.get('org_name', row.get('source', row.get('research_report_org', row.get('author', '未知')))))
+                                date_str = str(row.get('date', row.get('create_date', row.get('report_date', ''))))[:10]
+                                products = match_products(title, summary)
+                                reports.append({
+                                    'title': title, 'source': org,
+                                    'date': date_str or datetime.now().strftime('%Y-%m-%d'),
+                                    'products': products,
+                                    'sector': determine_sector(products),
+                                    'stars': score_report(title, summary),
+                                    'summary': summary[:300] if summary else title,
+                                    'keywords': [kw for kw_list in STAR_KEYWORDS.values() for kw in kw_list if kw in (title + summary)][:5],
+                                    'url': f'https://search.eastmoney.com/search?m=0&t=4&k={title[:30]}',
+                                })
+                            if reports:
+                                print(f"  ✅ {method_name}: {len(reports)} 篇")
+                                break
+                    except:
+                        continue
+                if reports:
+                    break
             except Exception as e:
-                print(f"  ⚠ 备选接口也失败: {e}")
+                print(f"  ⚠ {method_name}: {e}")
+                continue
 
     except ImportError:
         print("  ❌ akshare 未安装")
     except Exception as e:
         print(f"  ⚠ AKShare 抓取异常: {e}")
+
+    return reports
+
+
+def fetch_via_requests():
+    """使用 requests 从可国际访问的API获取财经新闻"""
+    reports = []
+    try:
+        import requests
+
+        # 新浪财经国际版（海外可访问）
+        urls = [
+            'https://finance.sina.com.cn/money/future/ffmnews/index.shtml',
+        ]
+        for url in urls:
+            try:
+                resp = requests.get(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }, timeout=20)
+                if resp.status_code == 200:
+                    # 简单提取标题
+                    import re
+                    # 匹配 <a> 标签中的标题
+                    titles = re.findall(r'<a[^>]*>([^<]{10,80})</a>', resp.text)
+                    for title in titles[:30]:
+                        title = title.strip()
+                        if not title or len(title) < 10:
+                            continue
+                        products = match_products(title, '')
+                        if products:  # 只保留与品种相关的
+                            reports.append({
+                                'title': title, 'source': '新浪财经',
+                                'date': datetime.now().strftime('%Y-%m-%d'),
+                                'products': products,
+                                'sector': determine_sector(products),
+                                'stars': score_report(title, ''),
+                                'summary': title,
+                                'keywords': [],
+                                'url': f'https://search.sina.com.cn/?q={title[:30]}&c=news',
+                            })
+                    if reports:
+                        print(f"  ✅ 新浪财经: {len(reports)} 篇")
+            except Exception as e:
+                print(f"  ⚠ {url}: {e}")
+
+    except ImportError:
+        print("  ⚠ requests 未安装")
+    except Exception as e:
+        print(f"  ⚠ requests 抓取异常: {e}")
 
     return reports
 
@@ -170,8 +204,15 @@ def main():
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    # 抓取研报
+    # 抓取研报（多源）
     reports = fetch_via_akshare()
+    if len(reports) < 5:
+        print("  AKShare 数据不足，尝试备用源...")
+        reports2 = fetch_via_requests()
+        seen_titles = {r['title'][:40] for r in reports}
+        for r in reports2:
+            if r['title'][:40] not in seen_titles:
+                reports.append(r)
 
     # 去重 + 排序
     seen = set()

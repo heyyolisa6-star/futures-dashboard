@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期货全品种数据追踪系统</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-card: #1c2129;
+  --bg-hover: #252b36;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent-green: #3fb950;
+  --accent-red: #f85149;
+  --accent-blue: #58a6ff;
+  --accent-yellow: #d2991d;
+  --accent-orange: #db6d28;
+  --accent-purple: #a371f7;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --up-color: #ef5350;
+  --down-color: #26a69a;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-primary); color: var(--text-primary);
+  min-height: 100vh; overflow-x: hidden;
+}
+
+/* Header */
+#app-header {
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 8px;
+}
+#app-header h1 { font-size: 1.1rem; color: #c0c0c0; letter-spacing: 1px; white-space: nowrap; }
+.header-right { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; flex-wrap: wrap; }
+.header-right .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.status-dot.online { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.status-dot.offline { background: var(--accent-red); }
+.status-dot.stale { background: var(--accent-yellow); }
+#last-update { color: var(--text-secondary); font-size: 0.75rem; }
+#refresh-btn, #settings-btn {
+  background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;
+}
+#refresh-btn:hover, #settings-btn:hover, #alert-btn:hover { background: #333d4a; }
+#refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+#alert-btn { position: relative; }
+#alert-badge {
+  position: absolute; top: -6px; right: -8px;
+  font-size: 0.6rem; padding: 1px 4px; border-radius: 8px; color: #fff; min-width: 16px; text-align: center;
+}
+
+/* Market status bar */
+#market-bar {
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+  padding: 6px 16px; display: flex; align-items: center; gap: 16px;
+  font-size: 0.75rem; position: sticky; top: 46px; z-index: 99;
+  flex-wrap: wrap; overflow-x: auto;
+}
+.market-item { white-space: nowrap; color: var(--text-secondary); }
+.market-item span { color: var(--text-primary); font-weight: 600; }
+.market-item .up { color: var(--up-color); }
+.market-item .down { color: var(--down-color); }
+
+/* Tab Nav */
+#tab-nav {
+  display: flex; background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+  padding: 0 16px; gap: 0; position: sticky; top: 76px; z-index: 98; overflow-x: auto;
+}
+.tab-btn {
+  padding: 8px 14px; border: none; background: none; color: var(--text-secondary);
+  cursor: pointer; font-size: 0.8rem; white-space: nowrap; border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: #c0a040; border-bottom-color: #c0a040; }
+
+/* Alert Banner */
+#alert-banner {
+  display: none; background: linear-gradient(90deg, #3d1f1f, #2d1515);
+  border-bottom: 1px solid #5c3030; padding: 8px 16px;
+  font-size: 0.8rem; color: #ff8a80; align-items: center; gap: 10px;
+}
+#alert-banner.show { display: flex; }
+#alert-banner .alert-count { background: var(--accent-red); color: #fff; border-radius: 10px; padding: 2px 8px; font-size: 0.7rem; }
+#alert-banner .alert-msg { flex: 1; }
+#alert-banner .alert-close { cursor: pointer; color: #ff8a80; background: none; border: none; font-size: 1rem; }
+
+/* Alert History Panel */
+#alert-panel {
+  display: none; background: var(--bg-card); border: 1px solid var(--border);
+  margin: 10px 16px; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;
+}
+#alert-panel.show { display: block; }
+#alert-panel h3 { font-size: 0.85rem; margin-bottom: 8px; color: var(--accent-red); }
+.alert-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.78rem;
+}
+.alert-row:hover { background: var(--bg-hover); }
+.alert-row.severity-critical { border-left: 3px solid var(--accent-red); padding-left: 8px; background: rgba(248,81,73,0.06); }
+.alert-row.severity-warning { border-left: 3px solid var(--accent-yellow); padding-left: 8px; }
+.alert-row .alert-time { color: var(--text-muted); min-width: 50px; }
+.alert-row .alert-severity { min-width: 20px; text-align: center; }
+.alert-row .alert-symbol { font-weight: 600; min-width: 60px; }
+.alert-row .alert-detail { flex: 1; margin: 0 10px; }
+.alert-row .alert-reason { color: var(--accent-yellow); font-size: 0.72rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Content */
+#tab-content { padding: 12px 16px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Price Cards Grid */
+.sector-title { font-size: 0.85rem; color: var(--text-muted); margin: 10px 0 6px; letter-spacing: 2px; }
+.price-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px; margin-bottom: 14px;
+}
+.price-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; cursor: pointer; transition: all 0.15s;
+}
+.price-card:hover { border-color: #5a5a5a; background: var(--bg-hover); }
+.price-card.selected { border-color: var(--accent-blue); box-shadow: 0 0 8px rgba(88,166,255,0.15); }
+.price-card .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.price-card .symbol { font-size: 0.78rem; font-weight: 600; }
+.price-card .exchange { font-size: 0.6rem; color: var(--text-muted); background: #222; padding: 1px 4px; border-radius: 2px; }
+.price-card .price { font-size: 1.2rem; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; }
+.price-card .change { font-size: 0.75rem; display: flex; gap: 6px; align-items: center; }
+.price-card .change.up { color: var(--up-color); }
+.price-card .change.down { color: var(--down-color); }
+.price-card .change.flat { color: var(--text-muted); }
+.price-card .volume { font-size: 0.65rem; color: var(--text-muted); margin-top: 3px; }
+.price-card .card-sparkline { height: 40px; margin-top: 4px; }
+
+/* Rankings */
+.rankings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.ranking-panel {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; overflow-x: auto;
+}
+.ranking-panel h3 { font-size: 0.82rem; margin-bottom: 8px; }
+.ranking-panel.gainers h3 { color: var(--up-color); }
+.ranking-panel.losers h3 { color: var(--down-color); }
+.rank-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.rank-table th { text-align: left; color: var(--text-muted); padding: 3px 6px; border-bottom: 1px solid var(--border); font-weight: normal; }
+.rank-table td { padding: 3px 6px; border-bottom: 1px solid rgba(48,54,61,0.5); white-space: nowrap; }
+.rank-table .up { color: var(--up-color); }
+.rank-table .down { color: var(--down-color); }
+.rank-table tr { cursor: pointer; }
+.rank-table tr:hover { background: var(--bg-hover); }
+
+/* Detail Section */
+#detail-section {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px; margin-bottom: 14px;
+}
+#detail-section .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+#detail-section .detail-name { font-size: 1rem; font-weight: 700; }
+#detail-section .detail-info { display: flex; gap: 16px; font-size: 0.78rem; color: var(--text-secondary); flex-wrap: wrap; }
+#detail-chart { width: 100%; height: 360px; }
+
+/* Settings Modal */
+#settings-modal {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;
+}
+#settings-modal.show { display: flex; }
+#settings-inner {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 20px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+}
+#settings-inner h3 { margin-bottom: 14px; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+.setting-row label { color: var(--text-secondary); }
+.setting-row input, .setting-row select {
+  background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border);
+  padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; width: 120px;
+}
+.setting-row input[type="checkbox"] { width: auto; }
+#settings-inner button {
+  margin-top: 14px; padding: 8px 20px; background: var(--accent-blue); color: #fff;
+  border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Inventory Tab */
+.inventory-section {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px; margin-bottom: 14px;
+}
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.section-header h3 { font-size: 0.9rem; margin: 0; }
+.inv-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.inv-table th { text-align: left; color: var(--text-muted); padding: 6px 10px; border-bottom: 2px solid var(--border); font-weight: normal; cursor: pointer; white-space: nowrap; }
+.inv-table th:hover { color: var(--text-primary); }
+.inv-table td { padding: 5px 10px; border-bottom: 1px solid rgba(48,54,61,0.5); white-space: nowrap; }
+.inv-table tr:hover { background: var(--bg-hover); }
+.inv-table .up { color: var(--up-color); font-weight: 600; }
+.inv-table .down { color: var(--down-color); font-weight: 600; }
+.inv-table .bar-cell { position: relative; }
+.inv-table .bar-bg {
+  position: absolute; top: 2px; bottom: 2px; left: 0; border-radius: 2px;
+  opacity: 0.15; z-index: 0;
+}
+.inv-table .bar-bg.up { background: var(--up-color); }
+.inv-table .bar-bg.down { background: var(--down-color); }
+.inv-table .bar-val { position: relative; z-index: 1; }
+.position-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.position-col { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+.pos-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.pos-table th { text-align: left; color: var(--text-muted); padding: 3px 6px; border-bottom: 1px solid var(--border); font-weight: normal; }
+.pos-table td { padding: 3px 6px; border-bottom: 1px solid rgba(48,54,61,0.3); }
+.pos-table tr:hover { background: var(--bg-hover); }
+#position-summary { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; }
+@media (max-width: 768px) {
+  .position-grid { grid-template-columns: 1fr; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .price-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .rankings-row { grid-template-columns: 1fr; }
+  #app-header h1 { font-size: 0.9rem; }
+  .tab-btn { padding: 6px 10px; font-size: 0.72rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="app-header">
+  <h1>📊 期货全品种追踪</h1>
+  <div class="header-right">
+    <span id="conn-status"><span class="status-dot" id="status-dot"></span> <span id="status-text">初始化...</span></span>
+    <span id="last-update">--</span>
+    <button id="refresh-btn" onclick="App.refresh()">🔄 刷新</button>
+    <button id="alert-btn" onclick="App.toggleAlertPanel()" style="display:none;">🚨 <span id="alert-badge">0</span></button>
+    <button id="settings-btn" onclick="App.openSettings()">⚙ 设置</button>
+  </div>
+</div>
+
+<!-- Market Bar -->
+<div id="market-bar">
+  <div class="market-item">文华商品: <span id="idx-wenhua">--</span></div>
+  <div class="market-item">美元指数: <span id="idx-dxy">--</span></div>
+  <div class="market-item">USD/CNY: <span id="idx-cny">--</span></div>
+  <div class="market-item">WTI原油: <span id="idx-wti">--</span></div>
+  <div class="market-item">COMEX金: <span id="idx-gold">--</span></div>
+  <div class="market-item">COMEX银: <span id="idx-silver">--</span></div>
+</div>
+
+<!-- Tab Nav -->
+<div id="tab-nav">
+  <button class="tab-btn active" data-tab="overview">📋 全品种概览</button>
+  <button class="tab-btn" data-tab="black">⚫ 黑色系</button>
+  <button class="tab-btn" data-tab="nonferrous">🟠 有色金属</button>
+  <button class="tab-btn" data-tab="precious">🟡 贵金属</button>
+  <button class="tab-btn" data-tab="chemical">🟣 能源化工</button>
+  <button class="tab-btn" data-tab="agri">🟢 农产品</button>
+  <button class="tab-btn" data-tab="financial">🔵 金融期货</button>
+  <button class="tab-btn" data-tab="reports">📄 研报汇总</button>
+  <button class="tab-btn" data-tab="inventory">📦 仓单库存</button>
+</div>
+
+<!-- Alert Banner -->
+<div id="alert-banner">
+  <span>🚨</span>
+  <span class="alert-count" id="alert-count">0</span>
+  <span class="alert-msg" id="alert-msg"></span>
+  <button class="alert-close" onclick="App.dismissAlert()">✕</button>
+</div>
+
+<!-- Alert History -->
+<div id="alert-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+    <h3 style="margin:0;">📋 异动记录 <span id="alert-total" style="font-size:0.7rem;color:var(--text-muted);"></span></h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <select id="alert-filter-type" onchange="UI.filterAlerts()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:3px 6px;border-radius:3px;font-size:0.7rem;">
+        <option value="all">全部类型</option><option value="price">价格异动</option><option value="volume">成交量</option><option value="position">持仓变化</option>
+      </select>
+      <select id="alert-filter-sector" onchange="UI.filterAlerts()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:3px 6px;border-radius:3px;font-size:0.7rem;">
+        <option value="all">全部板块</option><option value="black">黑色系</option><option value="nonferrous">有色金属</option><option value="precious">贵金属</option><option value="chemical">能源化工</option><option value="agri">农产品</option><option value="financial">金融期货</option>
+      </select>
+      <button onclick="AlertEngine.clearHistory()" style="background:var(--bg-hover);color:var(--text-secondary);border:1px solid var(--border);padding:3px 8px;border-radius:3px;cursor:pointer;font-size:0.7rem;">清空记录</button>
+    </div>
+  </div>
+  <div id="alert-list"></div>
+</div>
+
+<!-- Content -->
+<div id="tab-content">
+  <!-- Overview Panel -->
+  <div class="tab-panel active" id="panel-overview">
+    <div id="overview-cards"></div>
+    <div class="rankings-row">
+      <div class="ranking-panel gainers"><h3>📈 涨幅榜 Top10</h3><table class="rank-table" id="gainers-table"></table></div>
+      <div class="ranking-panel losers"><h3>📉 跌幅榜 Top10</h3><table class="rank-table" id="losers-table"></table></div>
+    </div>
+  </div>
+  <!-- Other panels generated dynamically -->
+  <div class="tab-panel" id="panel-black"><div class="sector-cards" data-sector="black"></div></div>
+  <div class="tab-panel" id="panel-nonferrous"><div class="sector-cards" data-sector="nonferrous"></div></div>
+  <div class="tab-panel" id="panel-precious"><div class="sector-cards" data-sector="precious"></div></div>
+  <div class="tab-panel" id="panel-chemical"><div class="sector-cards" data-sector="chemical"></div></div>
+  <div class="tab-panel" id="panel-agri"><div class="sector-cards" data-sector="agri"></div></div>
+  <div class="tab-panel" id="panel-financial"><div class="sector-cards" data-sector="financial"></div></div>
+  <div class="tab-panel" id="panel-reports"><div style="color:var(--text-muted);padding:40px;text-align:center;">研报汇总功能将在第四步上线<br>届时每天早上自动抓取各渠道研报并AI摘要标星</div></div>
+  <div class="tab-panel" id="panel-inventory">
+    <!-- 仓单数据 -->
+    <div class="inventory-section">
+      <div class="section-header">
+        <h3>📦 仓单日报</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="inv-exchange-filter" onchange="InventoryUI.renderAll()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:0.75rem;">
+            <option value="all">全部交易所</option>
+            <option value="SHFE">上期所</option><option value="DCE">大商所</option><option value="CZCE">郑商所</option><option value="INE">能源中心</option>
+          </select>
+          <select id="inv-sort" onchange="InventoryUI.renderAll()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:0.75rem;">
+            <option value="change">按仓单变化</option><option value="pct">按变化比例</option><option value="receipt">按仓单量</option>
+          </select>
+          <span id="inv-update-time" style="font-size:0.72rem;color:var(--text-muted);"></span>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="inv-table" id="warehouse-table">
+          <thead><tr><th>品种</th><th>交易所</th><th>仓单数量</th><th>日变化</th><th>变化比例</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 持仓排名 -->
+    <div class="inventory-section">
+      <div class="section-header">
+        <h3>📊 持仓排名 <span style="font-size:0.7rem;color:var(--text-muted);">前5多空席位</span></h3>
+        <select id="pos-product-select" onchange="InventoryUI.renderPositionDetail()" style="background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:0.75rem;"></select>
+      </div>
+      <div class="position-grid">
+        <div class="position-col long">
+          <h4 style="color:var(--up-color);margin-bottom:6px;">🔴 多头前5席位</h4>
+          <table class="pos-table" id="long-table"><tbody></tbody></table>
+        </div>
+        <div class="position-col short">
+          <h4 style="color:var(--down-color);margin-bottom:6px;">🟢 空头前5席位</h4>
+          <table class="pos-table" id="short-table"><tbody></tbody></table>
+        </div>
+      </div>
+      <div id="position-summary" style="margin-top:10px;font-size:0.78rem;color:var(--text-secondary);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Section -->
+<div id="detail-section" style="margin:0 16px 20px;">
+  <div class="detail-header">
+    <span class="detail-name" id="detail-name">👆 点击品种卡片查看K线图</span>
+    <div class="detail-info" id="detail-info"></div>
+  </div>
+  <div id="detail-chart"></div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal">
+  <div id="settings-inner">
+    <h3>⚙ 设置</h3>
+    <div class="setting-row"><label>自动刷新间隔(秒)</label><input type="number" id="cfg-refresh" value="30" min="10" max="300"></div>
+    <div class="setting-row"><label>涨幅预警阈值(%)</label><input type="number" id="cfg-up-threshold" value="3" min="0.5" max="20" step="0.5"></div>
+    <div class="setting-row"><label>跌幅预警阈值(%)</label><input type="number" id="cfg-down-threshold" value="3" min="0.5" max="20" step="0.5"></div>
+    <div class="setting-row"><label>成交量预警(倍均量)</label><input type="number" id="cfg-vol-threshold" value="2" min="1.5" max="10" step="0.5"></div>
+    <div class="setting-row"><label>持仓异动阈值(%)</label><input type="number" id="cfg-oi-threshold" value="5" min="2" max="30" step="1"></div>
+    <div class="setting-row"><label>启用桌面通知</label><input type="checkbox" id="cfg-notify" checked></div>
+    <div class="setting-row"><label>启用声音提醒</label><input type="checkbox" id="cfg-sound" checked></div>
+    <div class="setting-row"><label>启用新闻原因匹配</label><input type="checkbox" id="cfg-news" checked></div>
+    <button onclick="App.saveSettings()">💾 保存设置</button>
+  </div>
+</div>
+
+<script>
+// ==============================
+// CONFIG: Futures Products
+// ==============================
+const PRODUCTS = [
+  // 黑色系 Black
+  {code:'RB',name:'螺纹钢',sector:'black',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:3174},
+  {code:'HC',name:'热卷',sector:'black',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:3250},
+  {code:'I',name:'铁矿石',sector:'black',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:766},
+  {code:'JM',name:'焦煤',sector:'black',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:1150},
+  {code:'J',name:'焦炭',sector:'black',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:1850},
+  {code:'SF',name:'硅铁',sector:'black',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:6200},
+  {code:'SM',name:'锰硅',sector:'black',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:6300},
+  // 有色金属 Nonferrous
+  {code:'CU',name:'沪铜',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:103800},
+  {code:'AL',name:'沪铝',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:21200},
+  {code:'ZN',name:'沪锌',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:25200},
+  {code:'PB',name:'沪铅',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:18200},
+  {code:'NI',name:'沪镍',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:132000},
+  {code:'SN',name:'沪锡',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:285000},
+  {code:'AO',name:'氧化铝',sector:'nonferrous',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:3400},
+  // 贵金属 Precious
+  {code:'AU',name:'沪金',sector:'precious',exchange:'SHFE',unit:'元/克',priceScale:1,volUnit:'手',refPrice:949},
+  {code:'AG',name:'沪银',sector:'precious',exchange:'SHFE',unit:'元/千克',priceScale:1,volUnit:'手',refPrice:16454},
+  // 能源化工 Chemical
+  {code:'SC',name:'原油',sector:'chemical',exchange:'INE',unit:'元/桶',priceScale:1,volUnit:'手',refPrice:584},
+  {code:'FU',name:'燃油',sector:'chemical',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:3280},
+  {code:'BU',name:'沥青',sector:'chemical',exchange:'SHFE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:3650},
+  {code:'TA',name:'PTA',sector:'chemical',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:6304},
+  {code:'MA',name:'甲醇',sector:'chemical',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:2460},
+  {code:'V',name:'PVC',sector:'chemical',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:5850},
+  {code:'PP',name:'聚丙烯',sector:'chemical',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:7350},
+  {code:'L',name:'塑料',sector:'chemical',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:7950},
+  {code:'EG',name:'乙二醇',sector:'chemical',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:4320},
+  {code:'EB',name:'苯乙烯',sector:'chemical',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:8200},
+  {code:'SA',name:'纯碱',sector:'chemical',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:1580},
+  {code:'FG',name:'玻璃',sector:'chemical',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:1320},
+  {code:'UR',name:'尿素',sector:'chemical',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:1850},
+  // 农产品 Agri
+  {code:'M',name:'豆粕',sector:'agri',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:2910},
+  {code:'Y',name:'豆油',sector:'agri',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:7850},
+  {code:'P',name:'棕榈油',sector:'agri',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:7450},
+  {code:'RM',name:'菜粕',sector:'agri',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:2580},
+  {code:'OI',name:'菜油',sector:'agri',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:8700},
+  {code:'CF',name:'棉花',sector:'agri',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:14800},
+  {code:'SR',name:'白糖',sector:'agri',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:5950},
+  {code:'C',name:'玉米',sector:'agri',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:2280},
+  {code:'CS',name:'淀粉',sector:'agri',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:2780},
+  {code:'JD',name:'鸡蛋',sector:'agri',exchange:'DCE',unit:'元/500kg',priceScale:1,volUnit:'手',refPrice:3550},
+  {code:'LH',name:'生猪',sector:'agri',exchange:'DCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:15300},
+  {code:'PK',name:'花生',sector:'agri',exchange:'CZCE',unit:'元/吨',priceScale:1,volUnit:'手',refPrice:8700},
+  // 金融期货 Financial
+  {code:'IF',name:'沪深300',sector:'financial',exchange:'CFFEX',unit:'点',priceScale:1,volUnit:'手',refPrice:4777},
+  {code:'IC',name:'中证500',sector:'financial',exchange:'CFFEX',unit:'点',priceScale:1,volUnit:'手',refPrice:5200},
+  {code:'IH',name:'上证50',sector:'financial',exchange:'CFFEX',unit:'点',priceScale:1,volUnit:'手',refPrice:2650},
+  {code:'IM',name:'中证1000',sector:'financial',exchange:'CFFEX',unit:'点',priceScale:1,volUnit:'手',refPrice:5400},
+  {code:'TS',name:'2年国债',sector:'financial',exchange:'CFFEX',unit:'元',priceScale:1,volUnit:'手',refPrice:102.5},
+  {code:'TF',name:'5年国债',sector:'financial',exchange:'CFFEX',unit:'元',priceScale:1,volUnit:'手',refPrice:105.8},
+  {code:'T',name:'10年国债',sector:'financial',exchange:'CFFEX',unit:'元',priceScale:1,volUnit:'手',refPrice:108.2},
+  {code:'TL',name:'30年国债',sector:'financial',exchange:'CFFEX',unit:'元',priceScale:1,volUnit:'手',refPrice:112.5},
+];
+
+const SECTORS = {
+  overview: {name:'全品种概览',icon:'📋'},
+  black: {name:'黑色系',icon:'⚫'},
+  nonferrous: {name:'有色金属',icon:'🟠'},
+  precious: {name:'贵金属',icon:'🟡'},
+  chemical: {name:'能源化工',icon:'🟣'},
+  agri: {name:'农产品',icon:'🟢'},
+  financial: {name:'金融期货',icon:'🔵'},
+};
+
+// ==============================
+// STATE
+// ==============================
+const AppState = {
+  data: {},           // {RB:{price,changePct,volume,openInterest,high,low,open,prevClose,time,...}, ...}
+  klines: {},         // {RB:[{date,open,close,high,low,volume}], ...}
+  selected: null,     // currently selected product code
+  lastUpdate: null,
+  refreshTimer: null,
+  alerts: [],         // [{time, code, name, type, detail, reason}, ...]
+  settings: {
+    refreshInterval: 30,
+    upThreshold: 3,
+    downThreshold: 3,
+    volThreshold: 2,
+    oiThreshold: 5,
+    enableNotify: true,
+    enableSound: true,
+    enableNews: true,
+  },
+  charts: {},
+};
+
+// ==============================
+// CACHE MANAGER
+// ==============================
+const CacheManager = {
+  _mem: {},
+  get(key) {
+    if (this._mem[key] && (Date.now() - this._mem[key]._ts) < this._mem[key]._ttl * 1000) {
+      return this._mem[key];
+    }
+    try {
+      const raw = localStorage.getItem('futures_' + key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed._ts < parsed._ttl * 1000) {
+          this._mem[key] = parsed;
+          return parsed;
+        }
+      }
+    } catch(e) {}
+    return null;
+  },
+  set(key, data, ttl) {
+    const entry = {...data, _ts: Date.now(), _ttl: ttl};
+    this._mem[key] = entry;
+    try { localStorage.setItem('futures_' + key, JSON.stringify(entry)); } catch(e) {}
+  },
+};
+
+// ==============================
+// DEMO DATA GENERATOR (fallback for non-trading hours / missing data)
+// ==============================
+function generateDemoSnapshot(p) {
+  const base = p.refPrice || 100;
+  const volatility = base > 1000 ? 0.008 : (base > 100 ? 0.006 : 0.003);
+  const changePct = (Math.random() - 0.48) * volatility * 200;
+  const price = base * (1 + changePct / 100);
+  const vol = Math.floor(Math.random() * 200000 + 5000);
+  return {
+    price: +price.toFixed(base >= 100 ? 0 : 2),
+    changePct: +changePct.toFixed(2),
+    open: +(base * (1 + (Math.random()-0.5)*volatility)).toFixed(base >= 100 ? 0 : 2),
+    high: +(price * (1 + Math.random()*volatility*0.5)).toFixed(base >= 100 ? 0 : 2),
+    low: +(price * (1 - Math.random()*volatility*0.5)).toFixed(base >= 100 ? 0 : 2),
+    prevClose: base,
+    settle: base,
+    volume: vol,
+    openInterest: Math.floor(Math.random() * 500000 + 10000),
+    time: '--',
+    _refPrice: base,
+    _demo: true,
+  };
+}
+
+function generateDemoKlines(basePrice, days = 250) {
+  const klines = [];
+  const d = new Date();
+  let price = basePrice;
+  const volBase = basePrice > 10000 ? 100000 : (basePrice > 1000 ? 200000 : 300000);
+  const volDaily = volBase * (0.5 + Math.random());
+  for (let i = days; i >= 0; i--) {
+    const dt = new Date(d); dt.setDate(dt.getDate() - i);
+    const change = (Math.random() - 0.48) * 0.025 * price;
+    const open = price;
+    const close = price + change;
+    const high = Math.max(open, close) * (1 + Math.random() * 0.012);
+    const low = Math.min(open, close) * (1 - Math.random() * 0.012);
+    klines.push({
+      date: dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0'),
+      open: +open.toFixed(basePrice >= 100 ? 0 : 2),
+      close: +close.toFixed(basePrice >= 100 ? 0 : 2),
+      high: +high.toFixed(basePrice >= 100 ? 0 : 2),
+      low: +low.toFixed(basePrice >= 100 ? 0 : 2),
+      volume: Math.floor(volDaily * (0.4 + Math.random() * 1.2)),
+      turnover: 0,
+    });
+    price = close;
+  }
+  return klines;
+}
+function fmtNum(n, decimals) {
+  if (n == null || isNaN(n)) return '--';
+  if (decimals === undefined) decimals = (Math.abs(n) >= 100) ? 0 : (Math.abs(n) >= 10 ? 1 : 2);
+  return n.toFixed(decimals);
+}
+function fmtVol(n) {
+  if (n == null || isNaN(n)) return '--';
+  if (n >= 100000000) return (n/100000000).toFixed(1)+'亿';
+  if (n >= 10000) return (n/10000).toFixed(1)+'万';
+  return n.toString();
+}
+function fmtPct(n) {
+  if (n == null || isNaN(n)) return '--';
+  return (n>0?'+':'') + n.toFixed(2) + '%';
+}
+
+// ==============================
+// DATA FETCHER
+// ==============================
+const DataFetcher = {
+  // Fetch real-time snapshot from Sina for a batch of products
+  async fetchSinaBatch(codes) {
+    const symbols = codes.map(c => 'nf_' + c + '0').join(',');
+    const cacheKey = 'sina_batch_' + codes[0] + '_' + codes.length;
+    const cached = CacheManager.get(cacheKey);
+    if (cached && (Date.now() - cached._ts) < 15000) return cached;
+
+    try {
+      const resp = await fetch('https://hq.sinajs.cn/list=' + symbols, {
+        headers: { 'Referer': 'https://finance.sina.com.cn/futures/quotes/' + codes[0] + '0.shtml' }
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      const results = {};
+      const lines = text.split('\n').filter(l => l.trim());
+      lines.forEach(line => {
+        const varMatch = line.match(/var hq_str_nf_(\w+)="(.+)"/);
+        if (varMatch) {
+          const code = varMatch[1].replace(/0$/, '');
+          const p = varMatch[2].split(',');
+          if (p.length >= 15) {
+            results[code] = {
+              name: p[0] || code,
+              time: p[1] || '',
+              open: parseFloat(p[2]) || 0,
+              high: parseFloat(p[3]) || 0,
+              low: parseFloat(p[4]) || 0,
+              prevClose: parseFloat(p[5]) || 0,
+              bid: parseFloat(p[6]) || 0,
+              ask: parseFloat(p[7]) || 0,
+              price: parseFloat(p[8]) || 0,
+              settle: parseFloat(p[10]) || 0,
+              openInterest: parseFloat(p[13]) || 0,
+              volume: parseInt(p[14]) || 0,
+              exchange: p[15] || '',
+              product: p[16] || '',
+              date: p[17] || '',
+              // prevClose may be 0 after hours; use settle as fallback for change calc
+              _refPrice: (parseFloat(p[5]) || parseFloat(p[10]) || parseFloat(p[8]) || 0),
+            };
+          }
+        }
+      });
+      if (Object.keys(results).length > 0) {
+        CacheManager.set(cacheKey, results, 15);
+      }
+      return results;
+    } catch(e) {
+      console.warn('Sina batch fetch failed:', e.message);
+      return cached || {};
+    }
+  },
+
+  // Fetch K-line from Sina
+  async fetchSinaKline(code, days = 250) {
+    const cacheKey = 'kl_' + code;
+    const cached = CacheManager.get(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
+    try {
+      const resp = await fetch(
+        'https://stock2.finance.sina.com.cn/futures/api/jsonp.php/var%20_' + code + '0=/InnerFuturesNewService.getDailyKLine?symbol=' + code + '0',
+        { headers: { 'Referer': 'https://finance.sina.com.cn/' } }
+      );
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      const jm = text.match(/\((.+)\)/);
+      if (jm) {
+        const raw = JSON.parse(jm[1]);
+        if (Array.isArray(raw) && raw.length > 0) {
+          const result = raw.slice(-days).map(k => ({
+            date: k.d || '',
+            open: parseFloat(k.o) || 0,
+            close: parseFloat(k.c) || 0,
+            high: parseFloat(k.h) || 0,
+            low: parseFloat(k.l) || 0,
+            volume: parseInt(k.v) || 0,
+            turnover: parseFloat(k.a) || 0
+          })).filter(k => k.open > 0);
+          if (result.length > 0) {
+            CacheManager.set(cacheKey, result, 600);
+            return result;
+          }
+        }
+      }
+    } catch(e) { console.warn('Sina kline fetch for '+code+':', e.message); }
+    return cached || [];
+  },
+
+  // Fetch external market data (DXY, WTI, Gold, Silver)
+  async fetchExternal() {
+    const cacheKey = 'external';
+    const cached = CacheManager.get(cacheKey);
+    if (cached && (Date.now() - cached._ts) < 60000) return cached;
+
+    const results = {};
+    try {
+      const symbols = ['hf_DINIW','hf_CL','hf_XAU','hf_XAG'];
+      const resp = await fetch('https://hq.sinajs.cn/list=' + symbols.join(','), {
+        headers: { 'Referer': 'https://finance.sina.com.cn/' }
+      });
+      if (resp.ok) {
+        const text = await resp.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+          const m = line.match(/var hq_str_hf_(\w+)="(.+)"/);
+          if (m) {
+            const p = m[2].split(',');
+            const keyMap = {DINIW:'dxy',CL:'wti',XAU:'gold',XAG:'silver'};
+            if (keyMap[m[1]] && p.length >= 3) {
+              results[keyMap[m[1]]] = {
+                price: parseFloat(p[0]) || 0,
+                changePct: parseFloat(p[1]) || 0,
+                time: p[2] || '',
+              };
+            }
+          }
+        });
+      }
+      if (Object.keys(results).length > 0) CacheManager.set(cacheKey, results, 60);
+    } catch(e) { console.warn('External fetch:', e.message); }
+    return Object.keys(results).length > 0 ? results : (cached || {});
+  },
+
+  // Fetch USDCNY
+  async fetchFXRate() {
+    const cacheKey = 'fxrate';
+    const cached = CacheManager.get(cacheKey);
+    if (cached && (Date.now() - cached._ts) < 3600000) return cached;
+    try {
+      const resp = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (resp.ok) {
+        const json = await resp.json();
+        const result = { rate: json.rates?.CNY || 0 };
+        CacheManager.set(cacheKey, result, 3600);
+        return result;
+      }
+    } catch(e) { console.warn('FX fetch:', e.message); }
+    return cached || { rate: 0 };
+  },
+
+  // Fallback: Eastmoney snapshot for selected products
+  async fetchEastmoneySnapshot(secids) {
+    const ids = Array.isArray(secids) ? secids.join(',') : secids;
+    const cacheKey = 'em_snap_' + ids.replace(/[,.]/g,'_');
+    const cached = CacheManager.get(cacheKey);
+    if (cached && (Date.now() - cached._ts) < 30000) return cached;
+
+    const url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f2,f3,f4,f12,f14,f15,f16,f17,f18,f20,f21&secids=' + ids;
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      const cleaned = text.replace(/^jQuery\d+_\d+\(/, '').replace(/\);?\s*$/, '');
+      const json = JSON.parse(cleaned);
+      if (json?.data?.diff) {
+        const results = {};
+        json.data.diff.forEach(d => {
+          const code = (d.f12 || '').replace(/[^A-Z]/g, '');
+          results[code] = {
+            price: d.f2 || 0,
+            changePct: d.f3 || 0,
+            change: d.f4 || 0,
+            high: d.f15 || 0,
+            low: d.f16 || 0,
+            volume: d.f17 || 0,
+            turnover: d.f18 || 0,
+            openInterest: d.f20 || 0,
+            name: d.f14 || code,
+          };
+        });
+        if (Object.keys(results).length > 0) CacheManager.set(cacheKey, results, 30);
+        return results;
+      }
+    } catch(e) { console.warn('EM snapshot:', e.message); }
+    return cached || {};
+  },
+};
+
+// ==============================
+// UI RENDERER
+// ==============================
+const UI = {
+  // Create price card HTML
+  cardHTML(p, data) {
+    const d = data || {};
+    const price = d.price || 0;
+    const changePct = d.changePct != null ? d.changePct : (d._refPrice && price ? ((price - d._refPrice)/d._refPrice*100) : 0);
+    const changeDir = changePct > 0.05 ? 'up' : (changePct < -0.05 ? 'down' : 'flat');
+    const changeArrow = changeDir === 'up' ? '↑' : (changeDir === 'down' ? '↓' : '→');
+    const selected = AppState.selected === p.code ? ' selected' : '';
+    const volStr = d.volume ? 'VOL ' + fmtVol(d.volume) : '';
+    const oiStr = d.openInterest ? '  |  持仓 ' + fmtVol(d.openInterest) : '';
+
+    return `
+      <div class="price-card${selected}" data-code="${p.code}" onclick="App.selectProduct('${p.code}')">
+        <div class="card-top">
+          <span class="symbol">${p.name} ${p.code}</span>
+          <span class="exchange">${p.exchange}</span>
+        </div>
+        <div class="price">${price > 0 ? fmtNum(price, price>=100?0:2) : '--'}</div>
+        <div class="change ${changeDir}">
+          <span>${changeArrow} ${fmtPct(changePct)}</span>
+        </div>
+        <div class="volume">${volStr}${oiStr}</div>
+        <div class="card-sparkline" id="spark-${p.code}"></div>
+      </div>`;
+  },
+
+  // Render cards for a sector
+  // selector: CSS selector like '#overview-cards' or '#panel-nonferrous .sector-cards'
+  renderSectorCards(sector, selector) {
+    const container = document.querySelector(selector);
+    if (!container) { console.warn('renderSectorCards: container not found for', selector); return; }
+    const products = sector === 'overview'
+      ? PRODUCTS
+      : PRODUCTS.filter(p => p.sector === sector);
+
+    let html = '';
+    if (sector === 'overview') {
+      // Group by sector in overview
+      const secOrder = ['black','nonferrous','precious','chemical','agri','financial'];
+      secOrder.forEach(sec => {
+        const secProds = products.filter(p => p.sector === sec);
+        if (secProds.length === 0) return;
+        html += `<div class="sector-title">${SECTORS[sec].icon} ${SECTORS[sec].name}</div><div class="price-cards">`;
+        secProds.forEach(p => { html += UI.cardHTML(p, AppState.data[p.code]); });
+        html += '</div>';
+      });
+    } else {
+      html += '<div class="price-cards">';
+      products.forEach(p => { html += UI.cardHTML(p, AppState.data[p.code]); });
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  },
+
+  // Render all sector panels
+  renderAllSectors() {
+    UI.renderSectorCards('overview', '#overview-cards');
+    ['black','nonferrous','precious','chemical','agri','financial'].forEach(sec => {
+      UI.renderSectorCards(sec, '#panel-' + sec + ' .sector-cards');
+    });
+  },
+
+  // Render rankings
+  renderRankings() {
+    const all = PRODUCTS
+      .map(p => ({...p, data: AppState.data[p.code] || {}}))
+      .filter(p => p.data.price > 0);
+
+    const byChange = [...all].sort((a,b) => {
+      const ap = a.data.changePct != null ? a.data.changePct : (a.data._refPrice ? (a.data.price-a.data._refPrice)/a.data._refPrice*100 : -999);
+      const bp = b.data.changePct != null ? b.data.changePct : (b.data._refPrice ? (b.data.price-b.data._refPrice)/b.data._refPrice*100 : -999);
+      return bp - ap;
+    });
+
+    const gainers = byChange.slice(0, 10);
+    const losers = byChange.slice(-10).reverse();
+
+    ['gainers','losers'].forEach(type => {
+      const list = type === 'gainers' ? gainers : losers;
+      const table = document.getElementById(type + '-table');
+      if (!table) return;
+      let rows = '<tr><th>品种</th><th>最新价</th><th>涨跌幅</th><th>成交量</th></tr>';
+      list.forEach(p => {
+        const d = p.data;
+        const pct = d.changePct != null ? d.changePct : (d._refPrice ? (d.price-d._refPrice)/d._refPrice*100 : 0);
+        const cls = pct > 0 ? 'up' : (pct < 0 ? 'down' : '');
+        rows += `<tr onclick="App.selectProduct('${p.code}')">
+          <td><b>${p.name}</b> ${p.code}</td>
+          <td>${fmtNum(d.price, d.price>=100?0:2)}</td>
+          <td class="${cls}">${fmtPct(pct)}</td>
+          <td>${fmtVol(d.volume)}</td>
+        </tr>`;
+      });
+      table.innerHTML = rows;
+    });
+  },
+
+  // Render detail chart
+  renderDetailChart(code) {
+    const chartDom = document.getElementById('detail-chart');
+    let chart = AppState.charts['detail'];
+    if (!chart) {
+      chart = echarts.init(chartDom, 'dark');
+      AppState.charts['detail'] = chart;
+    }
+
+    const p = PRODUCTS.find(x => x.code === code);
+    const klines = AppState.klines[code] || [];
+    if (klines.length === 0) {
+      chart.setOption({
+        title: { text: '加载K线数据中...', left: 'center', top: 'center', textStyle: { color: '#8b949e', fontSize: 14 } },
+      });
+      return;
+    }
+
+    const dates = klines.map(k => k.date);
+    const ohlc = klines.map(k => [k.open, k.close, k.low, k.high]);
+    const vols = klines.map(k => k.volume);
+
+    // Calculate MA
+    const ma5 = []; const ma10 = []; const ma20 = [];
+    for (let i = 0; i < klines.length; i++) {
+      if (i >= 4) ma5.push([i, +klines.slice(i-4,i+1).reduce((s,k)=>s+k.close,0)/5]);
+      if (i >= 9) ma10.push([i, +klines.slice(i-9,i+1).reduce((s,k)=>s+k.close,0)/10]);
+      if (i >= 19) ma20.push([i, +klines.slice(i-19,i+1).reduce((s,k)=>s+k.close,0)/20]);
+    }
+
+    const name = p ? p.name + ' ' + p.code : code;
+    const latestData = AppState.data[code] || {};
+    const priceColor = (latestData.changePct || 0) >= 0 ? '#ef5350' : '#26a69a';
+
+    chart.setOption({
+      animation: false,
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        backgroundColor: 'rgba(22,27,34,0.95)',
+        borderColor: '#30363d',
+        textStyle: { fontSize: 12 },
+      },
+      grid: [
+        { left: 8, right: 8, top: 8, height: '65%' },
+        { left: 8, right: 8, top: '78%', height: '18%' }
+      ],
+      xAxis: [
+        { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { show: false } },
+        { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { fontSize: 10, color: '#6e7681', interval: Math.floor(dates.length/6) } }
+      ],
+      yAxis: [
+        { type: 'value', gridIndex: 0, scale: true, splitLine: { lineStyle: { color: '#21262d' } }, axisLabel: { fontSize: 10, color: '#6e7681' } },
+        { type: 'value', gridIndex: 1, axisLabel: { fontSize: 9, color: '#6e7681' }, splitLine: { show: false } }
+      ],
+      series: [
+        {
+          name: 'K线', type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0,
+          itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' },
+          markLine: {
+            silent: true, symbol: 'none',
+            data: [{ yAxis: latestData._refPrice || latestData.prevClose, lineStyle: { color: '#8b949e', type: 'dashed', width: 1 }, label: { formatter: '参考价' } }],
+          }
+        },
+        { name: 'MA5', type: 'line', data: ma5, xAxisIndex: 0, yAxisIndex: 0, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#ff9800' } },
+        { name: 'MA10', type: 'line', data: ma10, xAxisIndex: 0, yAxisIndex: 0, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#58a6ff' } },
+        { name: 'MA20', type: 'line', data: ma20, xAxisIndex: 0, yAxisIndex: 0, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#a371f7' } },
+        {
+          name: '成交量', type: 'bar', data: vols, xAxisIndex: 1, yAxisIndex: 1,
+          itemStyle: { color: (params) => { const i = params.dataIndex; return i>0 && klines[i].close>=klines[i-1].close ? '#ef5350' : '#26a69a'; } }
+        }
+      ]
+    });
+  },
+
+  // Render sparkline for a card
+  renderSparkline(code) {
+    const el = document.getElementById('spark-' + code);
+    if (!el) return;
+    const klines = AppState.klines[code] || [];
+    if (klines.length < 5) { el.innerHTML = ''; return; }
+
+    const chart = echarts.init(el);
+    const closes = klines.slice(-60).map(k => k.close);
+    const color = closes[closes.length-1] >= closes[0] ? '#ef5350' : '#26a69a';
+    chart.setOption({
+      grid: { left: 0, right: 0, top: 0, bottom: 0 },
+      xAxis: { type: 'category', data: closes.map((_,i)=>i), show: false },
+      yAxis: { type: 'value', show: false, scale: true },
+      series: [{
+        type: 'line', data: closes, smooth: true, showSymbol: false,
+        lineStyle: { color: color, width: 1.5 },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
+          { offset: 0, color: color + '30' }, { offset: 1, color: color + '00' }
+        ])}
+      }]
+    });
+  },
+
+  // Update market bar
+  updateMarketBar(external, fxRate) {
+    const setVal = (id, val, cls) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = val;
+        el.className = cls || '';
+      }
+    };
+    if (external.dxy) setVal('idx-dxy', external.dxy.price.toFixed(2), external.dxy.changePct>=0?'up':'down');
+    if (external.wti) setVal('idx-wti', '$'+external.wti.price.toFixed(2), external.wti.changePct>=0?'up':'down');
+    if (external.gold) setVal('idx-gold', '$'+external.gold.price.toFixed(1), external.gold.changePct>=0?'up':'down');
+    if (external.silver) setVal('idx-silver', '$'+external.silver.price.toFixed(2), external.silver.changePct>=0?'up':'down');
+    if (fxRate.rate) setVal('idx-cny', fxRate.rate.toFixed(4));
+  },
+
+  // Update status indicator
+  updateStatus(successCount, total) {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    const demoCount = Object.values(AppState.data).filter(d => d._demo).length;
+    if (successCount >= total * 0.8) {
+      dot.className = 'status-dot online';
+      text.textContent = demoCount > 0 ? `在线 (${total - demoCount}/${total} 实时)` : '在线';
+    } else if (successCount >= total * 0.3) {
+      dot.className = 'status-dot stale';
+      text.textContent = `部分数据 (${total - demoCount}/${total} 实时)`;
+    } else if (successCount > 0) {
+      dot.className = 'status-dot stale';
+      text.textContent = `少量真实 (${total - demoCount}实时 + ${demoCount}演示)`;
+    } else {
+      dot.className = 'status-dot offline';
+      text.textContent = '演示数据';
+    }
+  },
+};
+
+// ==============================
+// NEWS MATCHER — fetch breaking news, match to products
+// ==============================
+const NEWS_KEYWORDS = {
+  RB:['螺纹钢','螺纹','钢材','钢铁','建筑钢','基建','地产','房地产'],
+  HC:['热卷','热轧','卷板','钢材','汽车板'],
+  I:['铁矿石','铁矿','矿山','力拓','必和必拓','淡水河谷','vale'],
+  JM:['焦煤','炼焦煤','煤炭','煤矿'],
+  J:['焦炭','冶金焦','焦化'],
+  SF:['硅铁','铁合金','硅锰'],
+  SM:['锰硅','锰矿','硅锰','铁合金'],
+  CU:['铜','沪铜','精铜','铜矿','铜价','Codelco','智利铜'],
+  AL:['铝','沪铝','电解铝','铝锭','氧化铝','铝土矿'],
+  ZN:['锌','沪锌','精锌','锌矿'],
+  PB:['铅','沪铅','再生铅','铅蓄电池'],
+  NI:['镍','沪镍','电解镍','镍矿','不锈钢','印尼镍'],
+  SN:['锡','沪锡','精锡','佤邦','缅甸锡'],
+  AO:['氧化铝','铝土矿','几内亚'],
+  AU:['黄金','金价','沪金','COMEX金','美联储','央行购金','避险'],
+  AG:['白银','银价','沪银','光伏用银','太阳能'],
+  SC:['原油','油价','INE原油','OPEC','欧佩克','EIA','API原油','产油国'],
+  FU:['燃油','燃料油','船燃','保税','高硫','低硫'],
+  BU:['沥青','石油沥青','道路沥青','基建'],
+  TA:['PTA','精对苯二甲酸','聚酯','涤纶','PX'],
+  MA:['甲醇','甲酸','煤化工','MTO','烯烃'],
+  V:['PVC','聚氯乙烯','电石','管材'],
+  PP:['聚丙烯','PP','丙烯','丙烷'],
+  L:['塑料','LLDPE','聚乙烯','PE'],
+  EG:['乙二醇','MEG','聚酯','防冻液','涤纶'],
+  EB:['苯乙烯','苯','纯苯','PS','ABS','EPS'],
+  SA:['纯碱','重碱','轻碱','玻璃','浮法','光伏玻璃'],
+  FG:['玻璃','浮法玻璃','平板玻璃','竣工','地产'],
+  UR:['尿素','氮肥','农业','施肥','印度招标'],
+  M:['豆粕','豆粉','饲料','大豆','USDA','压榨'],
+  Y:['豆油','大豆油','油脂','生物柴油'],
+  P:['棕榈油','棕榈','MPOB','马来','印尼','B35','B40'],
+  RM:['菜粕','菜籽粕','饲料','菜籽','水产'],
+  OI:['菜油','菜籽油','油脂','加拿大菜籽'],
+  CF:['棉花','棉价','棉纺','新疆棉','USDA棉花'],
+  SR:['白糖','食糖','甘蔗','糖价','巴西糖','印度糖'],
+  C:['玉米','饲用玉米','深加工','USDA玉米','进口玉米'],
+  CS:['淀粉','玉米淀粉','深加工'],
+  JD:['鸡蛋','禽蛋','养殖','蛋鸡'],
+  LH:['生猪','猪肉','养殖','猪周期','存栏','出栏','能繁母猪'],
+  PK:['花生','花生仁','油脂油料'],
+  IF:['沪深300','股指','A股','大盘','权重'],
+  IC:['中证500','中盘股','股指期货'],
+  IH:['上证50','蓝筹','权重股'],
+  IM:['中证1000','小盘股','股指期货'],
+  TS:['国债','利率','央行','MLF','LPR','降息','降准'],
+  TF:['国债期货','五年国债','利率债'],
+  T:['十年国债','长端利率','债市'],
+  TL:['三十年国债','超长债','利率'],
+};
+
+const NewsMatcher = {
+  _cache: null,
+  _cacheTime: 0,
+
+  async fetchLatest() {
+    // Cache for 2 minutes
+    if (this._cache && (Date.now() - this._cacheTime) < 120000) return this._cache;
+    try {
+      const resp = await fetch(
+        'https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&k=&num=50&page=1',
+        { headers: { 'Referer': 'https://finance.sina.com.cn/' } }
+      );
+      if (!resp.ok) return this._cache || [];
+      const json = await resp.json();
+      if (json?.result?.data) {
+        const news = json.result.data.map(d => ({
+          title: d.title || '',
+          intro: d.intro || '',
+          time: d.ctime ? new Date(d.ctime * 1000).toLocaleTimeString('zh-CN') : '',
+          url: d.url || '',
+        }));
+        this._cache = news;
+        this._cacheTime = Date.now();
+        return news;
+      }
+    } catch(e) { console.warn('News fetch failed:', e.message); }
+    return this._cache || [];
+  },
+
+  matchForProduct(code, newsList) {
+    if (!newsList || newsList.length === 0) return [];
+    const keywords = NEWS_KEYWORDS[code] || [];
+    if (keywords.length === 0) return [];
+    const matches = [];
+    newsList.forEach(n => {
+      const title = n.title + ' ' + n.intro;
+      let score = 0;
+      keywords.forEach(kw => {
+        if (title.includes(kw)) score += kw.length > 2 ? 2 : 1;
+      });
+      if (score > 0) matches.push({ ...n, score });
+    });
+    matches.sort((a, b) => b.score - a.score);
+    return matches.slice(0, 3);
+  },
+};
+
+// ==============================
+// ENHANCED ALERT ENGINE
+// ==============================
+const AlertEngine = {
+  _prevData: null,
+  _volHistory: {},  // {code: [vol1, vol2, ...]} for avg calc
+
+  checkAlerts() {
+    const settings = AppState.settings;
+    const newAlerts = [];
+
+    PRODUCTS.forEach(p => {
+      const data = AppState.data[p.code];
+      if (!data || !data.price || !data._refPrice || data._demo) return;
+
+      const changePct = data.changePct != null ? data.changePct : (data.price - data._refPrice) / data._refPrice * 100;
+      const prevData = this._prevData ? (this._prevData[p.code] || {}) : {};
+
+      // ---- Price spike alert (with severity) ----
+      const absPct = Math.abs(changePct);
+      if (absPct >= settings.upThreshold) {
+        const dir = changePct > 0 ? '急涨' : '急跌';
+        const severity = absPct >= settings.upThreshold * 2 ? 'critical' : 'warning';
+        newAlerts.push({
+          time: new Date().toLocaleTimeString('zh-CN'),
+          code: p.code, name: p.name, sector: p.sector,
+          type: 'price', severity,
+          detail: `${dir}: ${fmtPct(changePct)}, 现价 ${fmtNum(data.price)} (参考 ${fmtNum(data._refPrice)})`,
+          reason: '',
+        });
+      }
+
+      // ---- Volume spike (vs moving average) ----
+      if (!this._volHistory[p.code]) this._volHistory[p.code] = [];
+      const vh = this._volHistory[p.code];
+      if (data.volume > 0) vh.push(data.volume);
+      if (vh.length > 20) vh.shift();
+      if (vh.length >= 5) {
+        const avgVol = vh.slice(0, -1).reduce((s,v)=>s+v,0) / (vh.length - 1);
+        if (avgVol > 0 && data.volume > avgVol * settings.volThreshold && data.volume > 10000) {
+          newAlerts.push({
+            time: new Date().toLocaleTimeString('zh-CN'),
+            code: p.code, name: p.name, sector: p.sector,
+            type: 'volume', severity: 'warning',
+            detail: `成交量暴增 ${fmtVol(data.volume)} (均量 ${fmtVol(Math.round(avgVol))}, ${Math.round(data.volume/avgVol*100)/100}x)`,
+            reason: '',
+          });
+        }
+      }
+
+      // ---- Open Interest change ----
+      if (prevData.openInterest && data.openInterest > 0) {
+        const oiChange = (data.openInterest - prevData.openInterest) / prevData.openInterest;
+        if (Math.abs(oiChange) >= 0.05) { // 5% OI change
+          const dir = oiChange > 0 ? '增仓' : '减仓';
+          newAlerts.push({
+            time: new Date().toLocaleTimeString('zh-CN'),
+            code: p.code, name: p.name, sector: p.sector,
+            type: 'position', severity: oiChange > 0.1 ? 'warning' : 'info',
+            detail: `${dir}: 持仓 ${fmtVol(data.openInterest)} (变化 ${fmtPct(oiChange * 100)})`,
+            reason: '',
+          });
+        }
+      }
+    });
+
+    this._prevData = JSON.parse(JSON.stringify(AppState.data));
+
+    if (newAlerts.length > 0) {
+      // Append to state, keep last 200
+      AppState.alerts = [...newAlerts, ...AppState.alerts].slice(0, 200);
+      // Save to localStorage
+      try { localStorage.setItem('futures_alerts', JSON.stringify(AppState.alerts.slice(0, 100))); } catch(e) {}
+      // Show in UI
+      UI.showAlerts(newAlerts);
+      // Trigger news matching (async)
+      this.matchNewsForAlerts(newAlerts);
+    }
+  },
+
+  async matchNewsForAlerts(alerts) {
+    if (!AppState.settings.enableNews) return;
+    const matchable = alerts.filter(a => a.type === 'price' || a.type === 'volume');
+    if (matchable.length === 0) return;
+    try {
+      const news = await NewsMatcher.fetchLatest();
+      if (news.length === 0) return;
+      matchable.forEach(a => {
+        const matches = NewsMatcher.matchForProduct(a.code, news);
+        if (matches.length > 0) {
+          a.reason = matches.map(m => m.title).join(' | ');
+          // Update in stored alerts too
+          const stored = AppState.alerts.find(x => x.time === a.time && x.code === a.code);
+          if (stored) stored.reason = a.reason;
+        }
+      });
+      // Re-render alerts with reasons
+      UI.renderAlertList();
+    } catch(e) { console.warn('News matching failed:', e.message); }
+  },
+
+  loadHistory() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('futures_alerts'));
+      if (Array.isArray(saved)) AppState.alerts = saved.slice(0, 200);
+    } catch(e) {}
+  },
+
+  clearHistory() {
+    AppState.alerts = [];
+    try { localStorage.removeItem('futures_alerts'); } catch(e) {}
+    UI.renderAlertList();
+    document.getElementById('alert-panel').classList.remove('show');
+  },
+};
+
+// Add alert rendering to UI
+UI.showAlerts = function(newAlerts) {
+  // Update header alert button
+  const alertBtn = document.getElementById('alert-btn');
+  const alertBadge = document.getElementById('alert-badge');
+  if (AppState.alerts.length > 0) {
+    alertBtn.style.display = 'inline-block';
+    alertBadge.textContent = AppState.alerts.length;
+    alertBadge.style.background = newAlerts.some(a => a.severity === 'critical') ? 'var(--accent-red)' : 'var(--accent-yellow)';
+  }
+
+  // Banner
+  const banner = document.getElementById('alert-banner');
+  const count = document.getElementById('alert-count');
+  const msg = document.getElementById('alert-msg');
+  count.textContent = AppState.alerts.length;
+  const criticals = newAlerts.filter(a => a.severity === 'critical');
+  const warnings = newAlerts.filter(a => a.severity === 'warning');
+  if (criticals.length > 0) {
+    msg.innerHTML = `<span style="color:#ff5252;font-weight:700;">⚡ ${criticals.length}个严重异动</span> ${criticals.map(a => a.name + ' ' + a.detail).join(' | ')}`;
+  } else {
+    msg.textContent = newAlerts.map(a => `${a.name} ${a.detail}`).join('  |  ');
+  }
+  banner.classList.add('show');
+  this.renderAlertList();
+  document.getElementById('alert-panel').classList.add('show');
+
+  // Desktop notification (only for warning+)
+  if (AppState.settings.enableNotify && Notification.permission === 'granted') {
+    const urgent = newAlerts.filter(a => a.severity === 'critical' || a.severity === 'warning');
+    if (urgent.length > 0) {
+      const first = urgent[0];
+      new Notification(`🚨 ${first.name} ${first.detail}`, {
+        body: urgent.slice(0, 5).map(a => `${a.severity==='critical'?'⚡':'⚠'} ${a.name} ${a.detail}`).join('\n'),
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🚨</text></svg>',
+      });
+    }
+  }
+
+  // Sound
+  if (AppState.settings.enableSound) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = criticals.length > 0 ? 1200 : 800;
+      gain.gain.value = 0.1;
+      osc.start(); osc.stop(ctx.currentTime + 0.2);
+    } catch(e) {}
+  }
+};
+
+UI.renderAlertList = function(filterCode) {
+  const list = document.getElementById('alert-list');
+  const alertPanel = document.getElementById('alert-panel');
+  let alerts = AppState.alerts;
+  if (filterCode) alerts = alerts.filter(a => a.code === filterCode);
+
+  const severityIcon = {critical:'🔴', warning:'🟡', info:'🔵'};
+  let rows = '';
+  alerts.slice(0, 100).forEach(a => {
+    const icon = severityIcon[a.severity] || '⚪';
+    rows += `<div class="alert-row severity-${a.severity || 'info'}" onclick="App.selectProduct('${a.code}')" style="cursor:pointer;">
+      <span class="alert-time">${a.time}</span>
+      <span class="alert-severity">${icon}</span>
+      <span class="alert-symbol">${a.name} ${a.code}</span>
+      <span class="alert-detail">${a.detail}</span>
+      <span class="alert-reason" title="${a.reason || ''}">${a.reason || ''}</span>
+    </div>`;
+  });
+  if (rows === '') rows = '<div style="color:var(--text-muted);text-align:center;padding:20px;">暂无预警记录</div>';
+  list.innerHTML = rows;
+  if (AppState.alerts.length > 0) alertPanel.classList.add('show');
+  document.getElementById('alert-total').textContent = `(${AppState.alerts.length}条)`;
+};
+
+UI.filterAlerts = function() {
+  const type = document.getElementById('alert-filter-type').value;
+  const sector = document.getElementById('alert-filter-sector').value;
+  const list = document.getElementById('alert-list');
+  let alerts = AppState.alerts;
+  if (type !== 'all') alerts = alerts.filter(a => a.type === type);
+  if (sector !== 'all') alerts = alerts.filter(a => a.sector === sector);
+
+  const severityIcon = {critical:'🔴', warning:'🟡', info:'🔵'};
+  let rows = '';
+  alerts.slice(0, 100).forEach(a => {
+    const icon = severityIcon[a.severity] || '⚪';
+    rows += `<div class="alert-row severity-${a.severity || 'info'}" onclick="App.selectProduct('${a.code}')" style="cursor:pointer;">
+      <span class="alert-time">${a.time}</span>
+      <span class="alert-severity">${icon}</span>
+      <span class="alert-symbol">${a.name} ${a.code}</span>
+      <span class="alert-detail">${a.detail}</span>
+      <span class="alert-reason" title="${a.reason || ''}">${a.reason || ''}</span>
+    </div>`;
+  });
+  if (rows === '') rows = '<div style="color:var(--text-muted);text-align:center;padding:20px;">无匹配的预警记录</div>';
+  list.innerHTML = rows;
+};
+
+// ==============================
+// EMBEDDED SAMPLE DATA (fallback when fetch fails on file://)
+// ==============================
+const EMBEDDED_RECEIPT_DATA = {"updateTime":"2026-06-05 18:30:00","source":"示例数据","data":[{code:"CU",name:"沪铜",exchange:"SHFE",receipt:25632,change:1234,changePct:5.06},{code:"AL",name:"沪铝",exchange:"SHFE",receipt:48520,change:-2340,changePct:-4.6},{code:"ZN",name:"沪锌",exchange:"SHFE",receipt:12340,change:890,changePct:7.77},{code:"NI",name:"沪镍",exchange:"SHFE",receipt:3420,change:520,changePct:17.93},{code:"AG",name:"沪银",exchange:"SHFE",receipt:385200,change:-12500,changePct:-3.14},{code:"RB",name:"螺纹钢",exchange:"SHFE",receipt:145600,change:8700,changePct:6.35},{code:"HC",name:"热卷",exchange:"SHFE",receipt:68900,change:3200,changePct:4.87},{code:"FU",name:"燃油",exchange:"SHFE",receipt:45200,change:-1800,changePct:-3.83},{code:"BU",name:"沥青",exchange:"SHFE",receipt:32100,change:1500,changePct:4.9},{code:"I",name:"铁矿石",exchange:"DCE",receipt:256000,change:12000,changePct:4.92},{code:"JM",name:"焦煤",exchange:"DCE",receipt:89200,change:-3400,changePct:-3.67},{code:"J",name:"焦炭",exchange:"DCE",receipt:45600,change:2100,changePct:4.83},{code:"M",name:"豆粕",exchange:"DCE",receipt:325000,change:-8500,changePct:-2.55},{code:"Y",name:"豆油",exchange:"DCE",receipt:98700,change:2300,changePct:2.39},{code:"P",name:"棕榈油",exchange:"DCE",receipt:65400,change:-1200,changePct:-1.8},{code:"TA",name:"PTA",exchange:"CZCE",receipt:185000,change:9500,changePct:5.41},{code:"MA",name:"甲醇",exchange:"CZCE",receipt:78200,change:-4200,changePct:-5.1},{code:"SA",name:"纯碱",exchange:"CZCE",receipt:56200,change:6800,changePct:13.77},{code:"FG",name:"玻璃",exchange:"CZCE",receipt:42300,change:1200,changePct:2.92},{code:"CF",name:"棉花",exchange:"CZCE",receipt:128500,change:-3200,changePct:-2.43},{code:"SR",name:"白糖",exchange:"CZCE",receipt:95600,change:4500,changePct:4.94},{code:"C",name:"玉米",exchange:"DCE",receipt:456000,change:-12000,changePct:-2.56},{code:"SC",name:"原油",exchange:"INE",receipt:8500000,change:452000,changePct:5.62},{code:"AU",name:"沪金",exchange:"SHFE",receipt:8520,change:0,changePct:0},{code:"PB",name:"沪铅",exchange:"SHFE",receipt:8750,change:-156,changePct:-1.75},{code:"SN",name:"沪锡",exchange:"SHFE",receipt:980,change:45,changePct:4.81},{code:"LH",name:"生猪",exchange:"DCE",receipt:1200,change:80,changePct:7.14}]};
+
+const EMBEDDED_POSITION_DATA = {"updateTime":"2026-06-05 18:30:00","source":"示例数据","data":[{code:"RB",name:"螺纹钢",exchange:"SHFE",longVolume:452300,shortVolume:438900,netPosition:13400,longChange:12500,shortChange:-3200,top5Long:[{rank:1,member:"中信期货",volume:52300,change:2100},{rank:2,member:"永安期货",volume:48200,change:1500},{rank:3,member:"国泰君安",volume:41200,change:-800},{rank:4,member:"海通期货",volume:38500,change:3200},{rank:5,member:"华泰期货",volume:35200,change:1100}],top5Short:[{rank:1,member:"中信期货",volume:48900,change:-1200},{rank:2,member:"银河期货",volume:43200,change:2500},{rank:3,member:"国泰君安",volume:39500,change:800},{rank:4,member:"永安期货",volume:36800,change:-500},{rank:5,member:"海通期货",volume:34100,change:1600}]},{code:"I",name:"铁矿石",exchange:"DCE",longVolume:385600,shortVolume:392100,netPosition:-6500,longChange:23400,shortChange:18900,top5Long:[{rank:1,member:"中信期货",volume:48200,change:3200},{rank:2,member:"永安期货",volume:42500,change:2800},{rank:3,member:"国泰君安",volume:38900,change:-500},{rank:4,member:"海通期货",volume:35200,change:1800},{rank:5,member:"方正中期",volume:31800,change:2400}],top5Short:[{rank:1,member:"中信期货",volume:45200,change:1500},{rank:2,member:"银河期货",volume:40800,change:3200},{rank:3,member:"永安期货",volume:38500,change:-800},{rank:4,member:"国泰君安",volume:36200,change:2100},{rank:5,member:"华泰期货",volume:33500,change:-300}]},{code:"CU",name:"沪铜",exchange:"SHFE",longVolume:125600,shortVolume:118900,netPosition:6700,longChange:8900,shortChange:-1200,top5Long:[{rank:1,member:"中信期货",volume:15200,change:1200},{rank:2,member:"金瑞期货",volume:13800,change:950},{rank:3,member:"五矿期货",volume:12500,change:1800},{rank:4,member:"永安期货",volume:11800,change:-400},{rank:5,member:"国泰君安",volume:10500,change:650}],top5Short:[{rank:1,member:"中信期货",volume:14200,change:-800},{rank:2,member:"金瑞期货",volume:12800,change:300},{rank:3,member:"国泰君安",volume:11500,change:500},{rank:4,member:"云晨期货",volume:10200,change:-200},{rank:5,member:"中粮期货",volume:9500,change:400}]},{code:"AU",name:"沪金",exchange:"SHFE",longVolume:98500,shortVolume:92300,netPosition:6200,longChange:-3400,shortChange:-5800,top5Long:[{rank:1,member:"中信期货",volume:12500,change:-600},{rank:2,member:"国泰君安",volume:11200,change:-300},{rank:3,member:"海通期货",volume:10200,change:450},{rank:4,member:"浙商期货",volume:9500,change:-800},{rank:5,member:"永安期货",volume:8800,change:200}],top5Short:[{rank:1,member:"中信期货",volume:11800,change:-900},{rank:2,member:"国泰君安",volume:10500,change:-500},{rank:3,member:"中国银行",volume:9800,change:-1200},{rank:4,member:"工商银行",volume:9200,change:-600},{rank:5,member:"海通期货",volume:8500,change:300}]},{code:"AG",name:"沪银",exchange:"SHFE",longVolume:285600,shortVolume:268900,netPosition:16700,longChange:14500,shortChange:8200,top5Long:[{rank:1,member:"中信期货",volume:35200,change:2400},{rank:2,member:"国泰君安",volume:31800,change:1800},{rank:3,member:"永安期货",volume:28500,change:3200},{rank:4,member:"海通期货",volume:25200,change:-500},{rank:5,member:"华泰期货",volume:22500,change:1500}],top5Short:[{rank:1,member:"中信期货",volume:32800,change:1200},{rank:2,member:"中国银行",volume:29500,change:800},{rank:3,member:"国泰君安",volume:26800,change:1500},{rank:4,member:"永安期货",volume:24200,change:-300},{rank:5,member:"工商银行",volume:21800,change:600}]},{code:"SC",name:"原油",exchange:"INE",longVolume:89500,shortVolume:91200,netPosition:-1700,longChange:5600,shortChange:7800,top5Long:[{rank:1,member:"中信期货",volume:11200,change:900},{rank:2,member:"国泰君安",volume:10200,change:600},{rank:3,member:"海通期货",volume:9500,change:1200},{rank:4,member:"中粮期货",volume:8800,change:-300},{rank:5,member:"永安期货",volume:8200,change:450}],top5Short:[{rank:1,member:"中信期货",volume:10800,change:1200},{rank:2,member:"银河期货",volume:9800,change:800},{rank:3,member:"国泰君安",volume:9200,change:-500},{rank:4,member:"海通期货",volume:8500,change:600},{rank:5,member:"中粮期货",volume:7800,change:300}]},{code:"M",name:"豆粕",exchange:"DCE",longVolume:385200,shortVolume:368500,netPosition:16700,longChange:-8500,shortChange:-12500,top5Long:[{rank:1,member:"中信期货",volume:45200,change:-1200},{rank:2,member:"永安期货",volume:41800,change:-800},{rank:3,member:"中粮期货",volume:38500,change:-2500},{rank:4,member:"国泰君安",volume:35200,change:500},{rank:5,member:"海通期货",volume:32800,change:-600}],top5Short:[{rank:1,member:"中粮期货",volume:42500,change:-1800},{rank:2,member:"中信期货",volume:39800,change:-900},{rank:3,member:"永安期货",volume:36500,change:-1500},{rank:4,member:"国泰君安",volume:33800,change:-600},{rank:5,member:"海通期货",volume:31200,change:-400}]},{code:"SA",name:"纯碱",exchange:"CZCE",longVolume:156800,shortVolume:163200,netPosition:-6400,longChange:25800,shortChange:31200,top5Long:[{rank:1,member:"中信期货",volume:18500,change:3500},{rank:2,member:"国泰君安",volume:16800,change:4200},{rank:3,member:"永安期货",volume:15200,change:2800},{rank:4,member:"海通期货",volume:13800,change:1900},{rank:5,member:"华泰期货",volume:12500,change:2200}],top5Short:[{rank:1,member:"中信期货",volume:19200,change:3800},{rank:2,member:"国泰君安",volume:17500,change:4500},{rank:3,member:"永安期货",volume:15800,change:3200},{rank:4,member:"银河期货",volume:14200,change:2600},{rank:5,member:"海通期货",volume:12800,change:1800}]}]};
+
+// ==============================
+// INVENTORY & POSITION DATA UI
+// ==============================
+const InventoryUI = {
+  _receiptData: null,
+  _positionData: null,
+
+  async loadData() {
+    try {
+      const [receiptResp, positionResp] = await Promise.allSettled([
+        fetch('data/warehouse_receipt.json'),
+        fetch('data/position_ranking.json'),
+      ]);
+      if (receiptResp.status === 'fulfilled' && receiptResp.value.ok) {
+        this._receiptData = await receiptResp.value.json();
+      }
+      if (positionResp.status === 'fulfilled' && positionResp.value.ok) {
+        this._positionData = await positionResp.value.json();
+      }
+    } catch(e) {
+      console.warn('Remote data load failed, using embedded sample:', e.message);
+    }
+    // Fallback: use embedded sample data if fetch failed (e.g., on file://)
+    if (!this._receiptData) this._receiptData = EMBEDDED_RECEIPT_DATA;
+    if (!this._positionData) this._positionData = EMBEDDED_POSITION_DATA;
+  },
+
+  renderAll() {
+    this.renderWarehouseTable();
+    this.renderPositionSelector();
+    this.renderPositionDetail();
+  },
+
+  renderWarehouseTable() {
+    const data = this._receiptData;
+    const tbody = document.querySelector('#warehouse-table tbody');
+    const timeEl = document.getElementById('inv-update-time');
+    if (!data || !data.data || data.data.length === 0) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:20px;">仓单数据加载中... (需运行Python抓取脚本或连接GitHub Actions)</td></tr>';
+      return;
+    }
+    if (timeEl) timeEl.textContent = '更新: ' + (data.updateTime || data.tradeDate || '');
+
+    const exchangeFilter = document.getElementById('inv-exchange-filter')?.value || 'all';
+    const sortMode = document.getElementById('inv-sort')?.value || 'change';
+    let items = [...data.data];
+    if (exchangeFilter !== 'all') items = items.filter(d => d.exchange === exchangeFilter);
+
+    // Sort
+    if (sortMode === 'pct') items.sort((a,b) => Math.abs(b.changePct||0) - Math.abs(a.changePct||0));
+    else if (sortMode === 'receipt') items.sort((a,b) => (b.receipt||0) - (a.receipt||0));
+    else items.sort((a,b) => (b.change||0) - (a.change||0));
+
+    const maxReceipt = Math.max(...items.map(d => d.receipt || 0), 1);
+    let rows = '';
+    items.forEach(d => {
+      const isUp = (d.change || 0) >= 0;
+      const cls = isUp ? 'up' : 'down';
+      const arrow = isUp ? '↑' : '↓';
+      const barW = Math.min(100, (d.receipt || 0) / maxReceipt * 100);
+      rows += `<tr>
+        <td><b>${d.name || d.code}</b> ${d.code}</td>
+        <td style="font-size:0.72rem;color:var(--text-muted);">${d.exchange || ''}</td>
+        <td class="bar-cell"><div class="bar-bg ${cls}" style="width:${barW}%"></div><span class="bar-val">${fmtVol(d.receipt)}</span></td>
+        <td class="${cls}">${arrow} ${fmtVol(Math.abs(d.change||0))}</td>
+        <td class="${cls}">${d.changePct > 0 ? '+' : ''}${fmtNum(d.changePct, 2)}%</td>
+      </tr>`;
+    });
+    if (tbody) tbody.innerHTML = rows;
+  },
+
+  renderPositionSelector() {
+    const sel = document.getElementById('pos-product-select');
+    if (!sel) return;
+    const data = this._positionData;
+    if (!data || !data.data || data.data.length === 0) { sel.innerHTML = '<option>无数据</option>'; return; }
+    let opts = '<option value="">请选择品种</option>';
+    data.data.forEach(d => {
+      const net = d.netPosition || 0;
+      const netStr = net > 0 ? `净多${fmtVol(net)}` : (net < 0 ? `净空${fmtVol(-net)}` : '');
+      opts += `<option value="${d.code}">${d.name || d.code} ${netStr}</option>`;
+    });
+    sel.innerHTML = opts;
+    if (data.data.length > 0 && !sel.value) sel.value = data.data[0].code;
+  },
+
+  renderPositionDetail() {
+    const sel = document.getElementById('pos-product-select');
+    const code = sel?.value;
+    const data = this._positionData;
+    const longTbody = document.querySelector('#long-table tbody');
+    const shortTbody = document.querySelector('#short-table tbody');
+    const summary = document.getElementById('position-summary');
+
+    if (!code || !data || !data.data) {
+      if (longTbody) longTbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);">加载中...</td></tr>';
+      if (shortTbody) shortTbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);">加载中...</td></tr>';
+      return;
+    }
+
+    const item = data.data.find(d => d.code === code);
+    if (!item) {
+      if (summary) summary.textContent = '该品种暂无持仓排名数据';
+      return;
+    }
+
+    // Render long table
+    const longTop = item.top5Long || [];
+    let lRows = '';
+    longTop.forEach((m, i) => {
+      const chgCls = (m.change || 0) >= 0 ? 'up' : 'down';
+      lRows += `<tr><td>#${i+1}</td><td>${m.member}</td><td>${fmtVol(m.volume)}</td><td class="${chgCls}">${m.change > 0 ? '+' : ''}${fmtVol(m.change)}</td></tr>`;
+    });
+    if (!lRows) lRows = '<tr><td colspan="4" style="color:var(--text-muted);">无数据</td></tr>';
+    if (longTbody) longTbody.innerHTML = lRows;
+
+    // Render short table
+    const shortTop = item.top5Short || [];
+    let sRows = '';
+    shortTop.forEach((m, i) => {
+      const chgCls = (m.change || 0) >= 0 ? 'up' : 'down';
+      sRows += `<tr><td>#${i+1}</td><td>${m.member}</td><td>${fmtVol(m.volume)}</td><td class="${chgCls}">${m.change > 0 ? '+' : ''}${fmtVol(m.change)}</td></tr>`;
+    });
+    if (!sRows) sRows = '<tr><td colspan="4" style="color:var(--text-muted);">无数据</td></tr>';
+    if (shortTbody) shortTbody.innerHTML = sRows;
+
+    // Summary
+    const netPos = item.netPosition || 0;
+    const netDir = netPos > 0 ? '偏多' : (netPos < 0 ? '偏空' : '均衡');
+    const netColor = netPos > 0 ? 'var(--up-color)' : (netPos < 0 ? 'var(--down-color)' : 'var(--text-secondary)');
+    if (summary) {
+      summary.innerHTML = `
+        <span>总多头: <b>${fmtVol(item.longVolume||0)}</b></span>
+        <span style="margin:0 12px;">总空头: <b>${fmtVol(item.shortVolume||0)}</b></span>
+        <span>净持仓: <b style="color:${netColor};">${netDir} ${fmtVol(Math.abs(netPos))}</b></span>
+        <span style="margin-left:12px;">多头变化: <b class="${(item.longChange||0)>=0?'up':'down'}">${(item.longChange||0)>0?'+':''}${fmtVol(item.longChange||0)}</b></span>
+        <span style="margin-left:12px;">空头变化: <b class="${(item.shortChange||0)>=0?'up':'down'}">${(item.shortChange||0)>0?'+':''}${fmtVol(item.shortChange||0)}</b></span>
+      `;
+    }
+  },
+};
+
+// ==============================
+// APP CONTROLLER
+// ==============================
+const App = {
+  async init() {
+    this.loadSettings();
+    AlertEngine.loadHistory();
+    this.bindTabs();
+    this.bindSettingsEvents();
+    await this.refresh();
+    InventoryUI.loadData().then(() => InventoryUI.renderAll());
+    this.startAutoRefresh();
+
+    // Request notification permission
+    if (AppState.settings.enableNotify && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      Object.values(AppState.charts).forEach(c => { try { c.resize(); } catch(e) {} });
+    });
+
+    // Close modal on outside click
+    document.getElementById('settings-modal').addEventListener('click', function(e) {
+      if (e.target === this) App.closeSettings();
+    });
+  },
+
+  async refresh() {
+    const btn = document.getElementById('refresh-btn');
+    btn.classList.add('loading');
+    document.getElementById('last-update').textContent = '更新中...';
+
+    const totalProducts = PRODUCTS.length;
+    let successCount = 0;
+
+    try {
+      // Fetch in batches of 8 to avoid rate limiting
+      const codes = PRODUCTS.map(p => p.code);
+      const batches = [];
+      for (let i = 0; i < codes.length; i += 8) {
+        batches.push(codes.slice(i, i + 8));
+      }
+
+      // Fetch all batches in parallel
+      const batchResults = await Promise.allSettled(
+        batches.map(batch => DataFetcher.fetchSinaBatch(batch))
+      );
+
+      // Merge results
+      batchResults.forEach(r => {
+        if (r.status === 'fulfilled' && r.value) {
+          Object.entries(r.value).forEach(([code, data]) => {
+            if (data.price > 0) {
+              const prevData = AppState.data[code] || {};
+              // Calculate changePct using reference price (prevClose or settle fallback)
+              if (!data.changePct && data._refPrice && data.price) {
+                data.changePct = (data.price - data._refPrice) / data._refPrice * 100;
+              } else if (!data.changePct) {
+                data.changePct = 0;
+              }
+              // Preserve K-line data
+              data._klines = prevData._klines;
+              AppState.data[code] = data;
+              successCount++;
+            }
+          });
+        }
+      });
+
+      // Fill missing products with demo data based on refPrice
+      PRODUCTS.forEach(p => {
+        if (!AppState.data[p.code] || !AppState.data[p.code].price) {
+          const existing = AppState.data[p.code] || {};
+          const demo = generateDemoSnapshot(p);
+          AppState.data[p.code] = { ...existing, ...demo, _demo: true };
+        } else {
+          // Ensure _refPrice has config fallback
+          const d = AppState.data[p.code];
+          if (!d._refPrice || d._refPrice <= 0) {
+            d._refPrice = p.refPrice || d.settle || d.price;
+          }
+          if ((!d.changePct || d.changePct === 0) && d._refPrice && d.price) {
+            d.changePct = (d.price - d._refPrice) / d._refPrice * 100;
+          }
+        }
+      });
+
+      // Fetch external market data in parallel
+      const [external, fxRate] = await Promise.allSettled([
+        DataFetcher.fetchExternal(),
+        DataFetcher.fetchFXRate(),
+      ]);
+
+      if (external.status === 'fulfilled') {
+        UI.updateMarketBar(external.value, { rate: fxRate.status==='fulfilled' ? fxRate.value.rate : 0 });
+      }
+
+      // Update UI
+      AppState.lastUpdate = new Date();
+      document.getElementById('last-update').textContent = AppState.lastUpdate.toLocaleTimeString('zh-CN');
+      UI.updateStatus(successCount, totalProducts);
+      UI.renderAllSectors();
+      UI.renderRankings();
+
+      // Run alert check
+      if (successCount > 10) {
+        AlertEngine.checkAlerts();
+      }
+
+      // Refresh detail chart if selected
+      if (AppState.selected) {
+        App.loadAndRenderChart(AppState.selected);
+      }
+
+    } catch(e) {
+      console.error('Refresh error:', e);
+      document.getElementById('last-update').textContent = '更新失败';
+    }
+
+    btn.classList.remove('loading');
+  },
+
+  async selectProduct(code) {
+    AppState.selected = code;
+    UI.renderAllSectors(); // Re-render to update selected state
+    await App.loadAndRenderChart(code);
+
+    // Update detail header
+    const p = PRODUCTS.find(x => x.code === code);
+    const data = AppState.data[code] || {};
+    const changePct = data.changePct || 0;
+    const changeColor = changePct >= 0 ? 'var(--up-color)' : 'var(--down-color)';
+    document.getElementById('detail-name').innerHTML = `
+      ${p ? p.name : ''} ${code}
+      <span style="color:${changeColor};font-size:0.85rem;margin-left:8px;">${fmtNum(data.price)}</span>
+    `;
+    const refPrice = data._refPrice || data.prevClose || (p ? p.refPrice : 0);
+    const refLabel = data.prevClose > 0 ? '昨收' : (data.settle > 0 ? '结算价' : '参考价');
+    document.getElementById('detail-info').innerHTML = `
+      <span>开盘 ${fmtNum(data.open)}</span>
+      <span>最高 ${fmtNum(data.high)}</span>
+      <span>最低 ${fmtNum(data.low)}</span>
+      <span>${refLabel} ${fmtNum(refPrice)}</span>
+      <span>成交量 ${fmtVol(data.volume)}</span>
+      <span>持仓 ${fmtVol(data.openInterest)}</span>
+      ${data._demo ? '<span style="color:var(--accent-yellow)">⚠ 演示数据</span>' : ''}
+    `;
+
+    // Scroll detail into view
+    document.getElementById('detail-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  },
+
+  async loadAndRenderChart(code) {
+    // Load kline data if not cached
+    if (!AppState.klines[code] || AppState.klines[code].length === 0) {
+      const klines = await DataFetcher.fetchSinaKline(code);
+      if (klines.length > 0) {
+        AppState.klines[code] = klines;
+      } else {
+        // Generate demo K-lines from refPrice or current price
+        const p = PRODUCTS.find(x => x.code === code);
+        const data = AppState.data[code] || {};
+        const basePrice = data.price || (p ? p.refPrice : 100);
+        AppState.klines[code] = generateDemoKlines(basePrice, 250);
+      }
+    }
+    UI.renderDetailChart(code);
+    UI.renderSparkline(code);
+  },
+
+  bindTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        const panel = document.getElementById('panel-' + tab);
+        if (panel) panel.classList.add('active');
+
+        // Re-render sector if needed
+        if (tab !== 'overview' && tab !== 'reports' && tab !== 'inventory') {
+          UI.renderSectorCards(tab, '#panel-' + tab + ' .sector-cards');
+        } else if (tab === 'inventory') {
+          InventoryUI.renderAll();
+        }
+
+        // Resize charts
+        setTimeout(() => {
+          Object.values(AppState.charts).forEach(c => { try { c.resize(); } catch(e) {} });
+        }, 100);
+      });
+    });
+  },
+
+  startAutoRefresh() {
+    if (AppState.refreshTimer) clearInterval(AppState.refreshTimer);
+    AppState.refreshTimer = setInterval(() => {
+      App.refresh();
+    }, AppState.settings.refreshInterval * 1000);
+  },
+
+  dismissAlert() {
+    document.getElementById('alert-banner').classList.remove('show');
+  },
+
+  toggleAlertPanel() {
+    const panel = document.getElementById('alert-panel');
+    panel.classList.toggle('show');
+  },
+
+  // Settings
+  loadSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('futures_settings'));
+      if (saved) Object.assign(AppState.settings, saved);
+    } catch(e) {}
+    this.applySettingsToUI();
+  },
+
+  applySettingsToUI() {
+    const s = AppState.settings;
+    document.getElementById('cfg-refresh').value = s.refreshInterval;
+    document.getElementById('cfg-up-threshold').value = s.upThreshold;
+    document.getElementById('cfg-down-threshold').value = s.downThreshold;
+    document.getElementById('cfg-vol-threshold').value = s.volThreshold;
+    document.getElementById('cfg-oi-threshold').value = s.oiThreshold;
+    document.getElementById('cfg-notify').checked = s.enableNotify;
+    document.getElementById('cfg-sound').checked = s.enableSound;
+    document.getElementById('cfg-news').checked = s.enableNews;
+  },
+
+  openSettings() {
+    this.applySettingsToUI();
+    document.getElementById('settings-modal').classList.add('show');
+  },
+
+  closeSettings() {
+    document.getElementById('settings-modal').classList.remove('show');
+  },
+
+  saveSettings() {
+    AppState.settings.refreshInterval = Math.max(10, parseInt(document.getElementById('cfg-refresh').value) || 30);
+    AppState.settings.upThreshold = parseFloat(document.getElementById('cfg-up-threshold').value) || 3;
+    AppState.settings.downThreshold = parseFloat(document.getElementById('cfg-down-threshold').value) || 3;
+    AppState.settings.volThreshold = parseFloat(document.getElementById('cfg-vol-threshold').value) || 2;
+    AppState.settings.oiThreshold = parseFloat(document.getElementById('cfg-oi-threshold').value) || 5;
+    AppState.settings.enableNotify = document.getElementById('cfg-notify').checked;
+    AppState.settings.enableSound = document.getElementById('cfg-sound').checked;
+    AppState.settings.enableNews = document.getElementById('cfg-news').checked;
+    localStorage.setItem('futures_settings', JSON.stringify(AppState.settings));
+    this.closeSettings();
+    this.startAutoRefresh(); // Restart with new interval
+
+    if (AppState.settings.enableNotify && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  },
+
+  bindSettingsEvents() {
+    document.getElementById('cfg-refresh').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-up-threshold').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-down-threshold').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-vol-threshold').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-oi-threshold').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-notify').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-sound').addEventListener('change', () => App.saveSettings());
+    document.getElementById('cfg-news').addEventListener('change', () => App.saveSettings());
+  },
+};
+
+// ==============================
+// BOOT
+// ==============================
+document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
+</body>
+</html>

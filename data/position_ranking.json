@@ -1,0 +1,62 @@
+{
+  "updateTime": "2026-06-05 18:30:00",
+  "source": "四大期货交易所前20会员持仓排名",
+  "data": [
+    {
+      "code":"RB","name":"螺纹钢","exchange":"SHFE",
+      "longVolume":452300,"shortVolume":438900,"netPosition":13400,
+      "longChange":12500,"shortChange":-3200,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":52300,"change":2100},{"rank":2,"member":"永安期货","volume":48200,"change":1500},{"rank":3,"member":"国泰君安","volume":41200,"change":-800},{"rank":4,"member":"海通期货","volume":38500,"change":3200},{"rank":5,"member":"华泰期货","volume":35200,"change":1100}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":48900,"change":-1200},{"rank":2,"member":"银河期货","volume":43200,"change":2500},{"rank":3,"member":"国泰君安","volume":39500,"change":800},{"rank":4,"member":"永安期货","volume":36800,"change":-500},{"rank":5,"member":"海通期货","volume":34100,"change":1600}]
+    },
+    {
+      "code":"I","name":"铁矿石","exchange":"DCE",
+      "longVolume":385600,"shortVolume":392100,"netPosition":-6500,
+      "longChange":23400,"shortChange":18900,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":48200,"change":3200},{"rank":2,"member":"永安期货","volume":42500,"change":2800},{"rank":3,"member":"国泰君安","volume":38900,"change":-500},{"rank":4,"member":"海通期货","volume":35200,"change":1800},{"rank":5,"member":"方正中期","volume":31800,"change":2400}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":45200,"change":1500},{"rank":2,"member":"银河期货","volume":40800,"change":3200},{"rank":3,"member":"永安期货","volume":38500,"change":-800},{"rank":4,"member":"国泰君安","volume":36200,"change":2100},{"rank":5,"member":"华泰期货","volume":33500,"change":-300}]
+    },
+    {
+      "code":"CU","name":"沪铜","exchange":"SHFE",
+      "longVolume":125600,"shortVolume":118900,"netPosition":6700,
+      "longChange":8900,"shortChange":-1200,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":15200,"change":1200},{"rank":2,"member":"金瑞期货","volume":13800,"change":950},{"rank":3,"member":"五矿期货","volume":12500,"change":1800},{"rank":4,"member":"永安期货","volume":11800,"change":-400},{"rank":5,"member":"国泰君安","volume":10500,"change":650}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":14200,"change":-800},{"rank":2,"member":"金瑞期货","volume":12800,"change":300},{"rank":3,"member":"国泰君安","volume":11500,"change":500},{"rank":4,"member":"云晨期货","volume":10200,"change":-200},{"rank":5,"member":"中粮期货","volume":9500,"change":400}]
+    },
+    {
+      "code":"AU","name":"沪金","exchange":"SHFE",
+      "longVolume":98500,"shortVolume":92300,"netPosition":6200,
+      "longChange":-3400,"shortChange":-5800,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":12500,"change":-600},{"rank":2,"member":"国泰君安","volume":11200,"change":-300},{"rank":3,"member":"海通期货","volume":10200,"change":450},{"rank":4,"member":"浙商期货","volume":9500,"change":-800},{"rank":5,"member":"永安期货","volume":8800,"change":200}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":11800,"change":-900},{"rank":2,"member":"国泰君安","volume":10500,"change":-500},{"rank":3,"member":"中国银行","volume":9800,"change":-1200},{"rank":4,"member":"工商银行","volume":9200,"change":-600},{"rank":5,"member":"海通期货","volume":8500,"change":300}]
+    },
+    {
+      "code":"AG","name":"沪银","exchange":"SHFE",
+      "longVolume":285600,"shortVolume":268900,"netPosition":16700,
+      "longChange":14500,"shortChange":8200,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":35200,"change":2400},{"rank":2,"member":"国泰君安","volume":31800,"change":1800},{"rank":3,"member":"永安期货","volume":28500,"change":3200},{"rank":4,"member":"海通期货","volume":25200,"change":-500},{"rank":5,"member":"华泰期货","volume":22500,"change":1500}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":32800,"change":1200},{"rank":2,"member":"中国银行","volume":29500,"change":800},{"rank":3,"member":"国泰君安","volume":26800,"change":1500},{"rank":4,"member":"永安期货","volume":24200,"change":-300},{"rank":5,"member":"工商银行","volume":21800,"change":600}]
+    },
+    {
+      "code":"SC","name":"原油","exchange":"INE",
+      "longVolume":89500,"shortVolume":91200,"netPosition":-1700,
+      "longChange":5600,"shortChange":7800,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":11200,"change":900},{"rank":2,"member":"国泰君安","volume":10200,"change":600},{"rank":3,"member":"海通期货","volume":9500,"change":1200},{"rank":4,"member":"中粮期货","volume":8800,"change":-300},{"rank":5,"member":"永安期货","volume":8200,"change":450}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":10800,"change":1200},{"rank":2,"member":"银河期货","volume":9800,"change":800},{"rank":3,"member":"国泰君安","volume":9200,"change":-500},{"rank":4,"member":"海通期货","volume":8500,"change":600},{"rank":5,"member":"中粮期货","volume":7800,"change":300}]
+    },
+    {
+      "code":"M","name":"豆粕","exchange":"DCE",
+      "longVolume":385200,"shortVolume":368500,"netPosition":16700,
+      "longChange":-8500,"shortChange":-12500,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":45200,"change":-1200},{"rank":2,"member":"永安期货","volume":41800,"change":-800},{"rank":3,"member":"中粮期货","volume":38500,"change":-2500},{"rank":4,"member":"国泰君安","volume":35200,"change":500},{"rank":5,"member":"海通期货","volume":32800,"change":-600}],
+      "top5Short":[{"rank":1,"member":"中粮期货","volume":42500,"change":-1800},{"rank":2,"member":"中信期货","volume":39800,"change":-900},{"rank":3,"member":"永安期货","volume":36500,"change":-1500},{"rank":4,"member":"国泰君安","volume":33800,"change":-600},{"rank":5,"member":"海通期货","volume":31200,"change":-400}]
+    },
+    {
+      "code":"SA","name":"纯碱","exchange":"CZCE",
+      "longVolume":156800,"shortVolume":163200,"netPosition":-6400,
+      "longChange":25800,"shortChange":31200,
+      "top5Long":[{"rank":1,"member":"中信期货","volume":18500,"change":3500},{"rank":2,"member":"国泰君安","volume":16800,"change":4200},{"rank":3,"member":"永安期货","volume":15200,"change":2800},{"rank":4,"member":"海通期货","volume":13800,"change":1900},{"rank":5,"member":"华泰期货","volume":12500,"change":2200}],
+      "top5Short":[{"rank":1,"member":"中信期货","volume":19200,"change":3800},{"rank":2,"member":"国泰君安","volume":17500,"change":4500},{"rank":3,"member":"永安期货","volume":15800,"change":3200},{"rank":4,"member":"银河期货","volume":14200,"change":2600},{"rank":5,"member":"海通期货","volume":12800,"change":1800}]
+    }
+  ]
+}

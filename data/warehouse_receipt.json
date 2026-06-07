@@ -1,0 +1,33 @@
+{
+  "updateTime": "2026-06-05 18:30:00",
+  "source": "上海期货交易所/大连商品交易所/郑州商品交易所",
+  "data": [
+    {"code":"CU","name":"沪铜","exchange":"SHFE","receipt":25632,"change":1234,"changePct":5.06,"warehouses":[{"name":"中储吴淞","amount":8520,"change":450},{"name":"上港物流","amount":6340,"change":320},{"name":"外运华东","amount":5340,"change":210}]},
+    {"code":"AL","name":"沪铝","exchange":"SHFE","receipt":48520,"change":-2340,"changePct":-4.60,"warehouses":[{"name":"中储大场","amount":12300,"change":-800},{"name":"无锡国联","amount":9800,"change":-500}]},
+    {"code":"ZN","name":"沪锌","exchange":"SHFE","receipt":12340,"change":890,"changePct":7.77,"warehouses":[{"name":"中储吴淞","amount":4500,"change":350},{"name":"宁波九龙仓","amount":3400,"change":220}]},
+    {"code":"PB","name":"沪铅","exchange":"SHFE","receipt":8750,"change":-156,"changePct":-1.75,"warehouses":[{"name":"中储大场","amount":3200,"change":-80}]},
+    {"code":"NI","name":"沪镍","exchange":"SHFE","receipt":3420,"change":520,"changePct":17.93,"warehouses":[{"name":"中储大场","amount":1200,"change":200},{"name":"上港物流","amount":980,"change":150}]},
+    {"code":"SN","name":"沪锡","exchange":"SHFE","receipt":980,"change":45,"changePct":4.81,"warehouses":[{"name":"中储大场","amount":450,"change":30}]},
+    {"code":"AU","name":"沪金","exchange":"SHFE","receipt":8520,"change":0,"changePct":0,"warehouses":[{"name":"中国银行","amount":3200,"change":0},{"name":"工商银行","amount":2800,"change":0}]},
+    {"code":"AG","name":"沪银","exchange":"SHFE","receipt":385200,"change":-12500,"changePct":-3.14,"warehouses":[{"name":"中国银行","amount":152000,"change":-5000},{"name":"中储吴淞","amount":98000,"change":-3200}]},
+    {"code":"RB","name":"螺纹钢","exchange":"SHFE","receipt":145600,"change":8700,"changePct":6.35,"warehouses":[{"name":"中储大场","amount":45000,"change":3200},{"name":"惠龙港","amount":38000,"change":2500}]},
+    {"code":"HC","name":"热卷","exchange":"SHFE","receipt":68900,"change":3200,"changePct":4.87,"warehouses":[{"name":"中储大场","amount":22000,"change":1200}]},
+    {"code":"FU","name":"燃油","exchange":"SHFE","receipt":45200,"change":-1800,"changePct":-3.83,"warehouses":[{"name":"洋山港","amount":18000,"change":-800}]},
+    {"code":"BU","name":"沥青","exchange":"SHFE","receipt":32100,"change":1500,"changePct":4.90,"warehouses":[{"name":"中储大场","amount":12000,"change":600}]},
+    {"code":"I","name":"铁矿石","exchange":"DCE","receipt":256000,"change":12000,"changePct":4.92,"warehouses":[{"name":"日照港","amount":85000,"change":4500},{"name":"青岛港","amount":72000,"change":3200}]},
+    {"code":"JM","name":"焦煤","exchange":"DCE","receipt":89200,"change":-3400,"changePct":-3.67,"warehouses":[{"name":"日照港","amount":32000,"change":-1200}]},
+    {"code":"J","name":"焦炭","exchange":"DCE","receipt":45600,"change":2100,"changePct":4.83,"warehouses":[{"name":"日照港","amount":18000,"change":900}]},
+    {"code":"M","name":"豆粕","exchange":"DCE","receipt":325000,"change":-8500,"changePct":-2.55,"warehouses":[{"name":"中储粮","amount":120000,"change":-3000}]},
+    {"code":"Y","name":"豆油","exchange":"DCE","receipt":98700,"change":2300,"changePct":2.39,"warehouses":[{"name":"中储粮","amount":42000,"change":1000}]},
+    {"code":"P","name":"棕榈油","exchange":"DCE","receipt":65400,"change":-1200,"changePct":-1.80,"warehouses":[{"name":"中储粮","amount":28000,"change":-500}]},
+    {"code":"TA","name":"PTA","exchange":"CZCE","receipt":185000,"change":9500,"changePct":5.41},
+    {"code":"MA","name":"甲醇","exchange":"CZCE","receipt":78200,"change":-4200,"changePct":-5.10},
+    {"code":"SA","name":"纯碱","exchange":"CZCE","receipt":56200,"change":6800,"changePct":13.77},
+    {"code":"FG","name":"玻璃","exchange":"CZCE","receipt":42300,"change":1200,"changePct":2.92},
+    {"code":"CF","name":"棉花","exchange":"CZCE","receipt":128500,"change":-3200,"changePct":-2.43},
+    {"code":"SR","name":"白糖","exchange":"CZCE","receipt":95600,"change":4500,"changePct":4.94},
+    {"code":"C","name":"玉米","exchange":"DCE","receipt":456000,"change":-12000,"changePct":-2.56},
+    {"code":"SC","name":"原油","exchange":"INE","receipt":8500000,"change":452000,"changePct":5.62},
+    {"code":"LH","name":"生猪","exchange":"DCE","receipt":1200,"change":80,"changePct":7.14}
+  ]
+}

@@ -1,29 +1,27 @@
 #!/usr/bin/env python3
 """
-期货研报自动抓取脚本
-运行时间：每个交易日 08:30 (GitHub Actions定时触发)
-输出：data/reports.json
+期货研报自动抓取脚本 v2
+数据源：AKShare 研报接口（可访问国内数据API）
+运行时间：每个交易日 08:30 (GitHub Actions)
 
 依赖：pip install akshare
 """
 
 import json
 import os
-import re
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
 
-# 研报关键词库（用于自动标星）
 STAR_KEYWORDS = {
     5: ['强烈推荐','强烈看多','强烈看空','供需逆转','库存新低','库存极低',
         '需求爆发','供给骤降','重大利多','重大利空','突破关键','历史低位','历史高位'],
     4: ['偏强','偏弱','看多','看空','去库','累库','减产','增产',
-        'OPEC','非农','CPI','美联储','USDA','MPOB','开工率','地缘'],
+        'OPEC','非农','CPI','美联储','USDA','MPOB','开工率','地缘','央行'],
     3: ['关注','震荡','波动','短期','中长期','预期','可能','或将'],
 }
 
-# 品种关键词映射（从标题/摘要提取关联品种）
 PRODUCT_KEYWORDS = {
     'CU': ['铜','沪铜','铜价','精铜','铜矿'],
     'AL': ['铝','沪铝','电解铝','铝锭'],
@@ -55,22 +53,24 @@ PRODUCT_KEYWORDS = {
     'LH': ['生猪','猪肉','猪周期','存栏','出栏'],
     'IF': ['沪深300','股指','A股','大盘'],
     'T': ['国债','利率','央行','MLF','LPR','降息'],
+    'LC': ['碳酸锂','锂价','锂电池','新能源车','正极材料'],
+    'SI': ['工业硅','金属硅','硅价','有机硅'],
+    'PS': ['多晶硅','硅料','光伏'],
+    'PT': ['铂','铂金','铂族'],
+    'PD': ['钯','钯金','铂族'],
 }
 
 
 def score_report(title, summary):
-    """根据关键词自动评分"""
     text = (title + ' ' + summary).lower()
-    score = 2
     for s in [5, 4, 3]:
         for kw in STAR_KEYWORDS[s]:
             if kw.lower() in text:
                 return s
-    return score
+    return 2
 
 
 def match_products(title, summary):
-    """匹配研报涉及的品种"""
     text = title + ' ' + summary
     matched = []
     for code, keywords in PRODUCT_KEYWORDS.items():
@@ -81,104 +81,129 @@ def match_products(title, summary):
     return matched
 
 
-def fetch_reports_em():
-    """从东方财富研报中心抓取（网页解析方式）"""
+def determine_sector(products):
+    for p in products:
+        if p in ['RB','HC','I','JM','J','SF','SM']: return 'black'
+        if p in ['CU','AL','ZN','PB','NI','SN','AO']: return 'nonferrous'
+        if p in ['AU','AG','PT','PD']: return 'precious'
+        if p in ['SC','FU','BU','TA','MA','SA','FG','V','PP','L','EG','EB','UR','SI','LC','PS']: return 'chemical'
+        if p in ['M','Y','P','RM','OI','CF','SR','C','CS','JD','LH','PK']: return 'agri'
+        if p in ['IF','IC','IH','IM','TS','TF','T','TL']: return 'financial'
+    return 'macro'
+
+
+def fetch_via_akshare():
+    """使用 AKShare 原生接口获取研报"""
     reports = []
     try:
-        import requests
-        from bs4 import BeautifulSoup
+        import akshare as ak
 
-        # 东方财富期货研报页面
-        urls = [
-            'https://data.eastmoney.com/report/industry/futures.html',
-        ]
-        for url in urls:
+        # 尝试 AKShare 的研报接口
+        # stock_research_report_em 获取东方财富个股研报
+        try:
+            df = ak.stock_research_report_em(symbol="", date="")
+            if df is not None and not df.empty:
+                for _, row in df.head(50).iterrows():
+                    title = str(row.get('research_report_title', row.get('title', '')))
+                    summary = str(row.get('research_report_summary', row.get('summary', '')))[:300]
+                    org = str(row.get('org_name', row.get('source', row.get('research_report_org', '未知'))))
+                    date_str = str(row.get('date', row.get('create_date', '')))[:10]
+
+                    if not title or len(title) < 5:
+                        continue
+
+                    products = match_products(title, summary)
+                    sector = determine_sector(products)
+
+                    reports.append({
+                        'title': title,
+                        'source': org,
+                        'date': date_str or datetime.now().strftime('%Y-%m-%d'),
+                        'products': products,
+                        'sector': sector,
+                        'stars': score_report(title, summary),
+                        'summary': summary[:300] if summary else title,
+                        'keywords': [kw for kw_list in STAR_KEYWORDS.values() for kw in kw_list if kw in (title + summary)],
+                        'url': f'https://search.eastmoney.com/search?m=0&t=4&k={title[:30]}',
+                    })
+                print(f"  ✅ AKShare stock_research_report_em: {len(reports)} 篇")
+        except Exception as e:
+            print(f"  ⚠ stock_research_report_em 失败: {e}")
+
+        # 备选：尝试期货特定研报接口
+        if len(reports) < 5:
             try:
-                resp = requests.get(url, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }, timeout=15)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    # 提取研报列表（选择器可能需根据实际页面调整）
-                    items = soup.select('.report-item, .report_list li, .list_item')
-                    for item in items[:30]:
-                        title_el = item.select_one('.title, h3, a')
-                        source_el = item.select_one('.source, .author, .org')
-                        date_el = item.select_one('.date, .time')
-                        if title_el:
-                            title = title_el.get_text(strip=True)
-                            source = source_el.get_text(strip=True) if source_el else '东方财富'
-                            date = date_el.get_text(strip=True) if date_el else datetime.now().strftime('%Y-%m-%d')
-                            summary = item.get_text(strip=True)[:200]
-                            url_link = title_el.get('href', '') if title_el.name == 'a' else ''
-
-                            products = match_products(title, summary)
-                            sector = 'macro'  # default
-                            # 简化板块判断
-                            for p in products:
-                                if p in ['RB','HC','I','JM','J','SF','SM']: sector = 'black'
-                                elif p in ['CU','AL','ZN','PB','NI','SN','AO']: sector = 'nonferrous'
-                                elif p in ['AU','AG']: sector = 'precious'
-                                elif p in ['SC','FU','BU','TA','MA','SA','FG','V','PP','L','EG','EB','UR']: sector = 'chemical'
-                                elif p in ['M','Y','P','RM','OI','CF','SR','C','LH']: sector = 'agri'
-                                elif p in ['IF','IC','IH','IM','TS','TF','T','TL']: sector = 'financial'
-                                break
-
-                            reports.append({
-                                'title': title,
-                                'source': source,
-                                'date': date,
-                                'products': products,
-                                'sector': sector,
-                                'stars': score_report(title, summary),
-                                'summary': summary[:300],
-                                'keywords': [kw for kw_list in STAR_KEYWORDS.values() for kw in kw_list if kw in (title + summary)],
-                                'url': url_link or '#',
-                            })
+                # 尝试获取期货相关的研报列表
+                df2 = ak.stock_research_report_em(symbol="期货")
+                if df2 is not None and not df2.empty:
+                    for _, row in df2.head(30).iterrows():
+                        title = str(row.get('research_report_title', ''))
+                        summary = str(row.get('research_report_summary', ''))[:300]
+                        if not title or len(title) < 5:
+                            continue
+                        products = match_products(title, summary)
+                        sector = determine_sector(products)
+                        reports.append({
+                            'title': title,
+                            'source': str(row.get('org_name', '未知')),
+                            'date': str(row.get('date', ''))[:10] or datetime.now().strftime('%Y-%m-%d'),
+                            'products': products, 'sector': sector,
+                            'stars': score_report(title, summary),
+                            'summary': summary[:300] if summary else title,
+                            'keywords': [kw for kw_list in STAR_KEYWORDS.values() for kw in kw_list if kw in (title + summary)],
+                            'url': f'https://search.eastmoney.com/search?m=0&t=4&k={title[:30]}',
+                        })
             except Exception as e:
-                print(f"  ⚠ URL {url} 抓取失败: {e}")
+                print(f"  ⚠ 备选接口也失败: {e}")
 
     except ImportError:
-        print("  ⚠ requests/bs4未安装: pip install requests beautifulsoup4")
+        print("  ❌ akshare 未安装")
     except Exception as e:
-        print(f"  ⚠ 研报抓取失败: {e}")
+        print(f"  ⚠ AKShare 抓取异常: {e}")
 
     return reports
 
 
 def main():
-    print(f"📄 期货研报抓取 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"📄 期货研报抓取 v2 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("-" * 50)
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
     # 抓取研报
-    reports = fetch_reports_em()
+    reports = fetch_via_akshare()
 
-    if reports:
-        # 按星级排序
-        reports.sort(key=lambda r: (r['stars'], r['date']), reverse=True)
+    # 去重 + 排序
+    seen = set()
+    unique = []
+    for r in reports:
+        key = r['title'][:50]
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda r: (r['stars'], r['date']), reverse=True)
 
-        output = {
-            'updateTime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'total': len(reports),
-            'reports': reports,
-        }
-
-        with open(os.path.join(DATA_DIR, 'reports.json'), 'w', encoding='utf-8') as f:
-            json.dump(output, f, ensure_ascii=False, indent=2)
-
-        print(f"  ✅ 研报已保存 ({len(reports)} 篇)")
-        # 打印标星分布
-        stars5 = sum(1 for r in reports if r['stars'] >= 5)
-        stars4 = sum(1 for r in reports if r['stars'] == 4)
+    print(f"\n  共获取 {len(unique)} 篇研报（去重后）")
+    if unique:
+        stars5 = sum(1 for r in unique if r['stars'] >= 5)
+        stars4 = sum(1 for r in unique if r['stars'] == 4)
         print(f"  ⭐⭐⭐⭐⭐ 强烈关注: {stars5} 篇")
         print(f"  ⭐⭐⭐⭐ 值得关注: {stars4} 篇")
-    else:
-        print("  ⚠ 未获取到研报数据（非交易日前夜或网络异常）")
 
-    print(f"\n✅ 完成: {datetime.now().strftime('%H:%M:%S')}")
+    # 始终生成 JSON（即使为空）
+    output = {
+        'updateTime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'date': datetime.now().strftime('%Y-%m-%d'),
+        'total': len(unique),
+        'reports': unique,
+    }
+
+    out_path = os.path.join(DATA_DIR, 'reports.json')
+    with open(out_path, 'w', encoding='utf-8') as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+
+    print(f"  ✅ 已保存到 {out_path}")
+    print(f"✅ 完成: {datetime.now().strftime('%H:%M:%S')}")
 
 
 if __name__ == '__main__':
